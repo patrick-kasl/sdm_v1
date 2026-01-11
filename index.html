@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CCQ SDM RMF v0.1 Analyzer - Hierarchical</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        :root {
+            --primary: #6c5ce7;
+            --bg: #f8f9fa;
+            --text: #2d3436;
+            --border: #dfe6e9;
+        }
+        
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0; padding: 20px;
+        }
+
+        .container {
+            max-width: 1300px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            border-radius: 8px;
+        }
+
+        h1 { text-align: center; color: #2c3e50; margin-bottom: 20px; }
+
+        /* SETUP BOX */
+        .setup-box {
+            background: #eef2f3;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            border: 1px solid #dde1e3;
+        }
+        input[type="text"], input[type="file"] {
+            width: 100%; padding: 10px; margin: 5px 0 15px 0;
+            border-radius: 4px; border: 1px solid #ccc;
+        }
+        button {
+            background-color: var(--primary);
+            color: white; border: none;
+            padding: 10px 20px; border-radius: 4px;
+            cursor: pointer; font-size: 1rem;
+        }
+        button:hover { background-color: #5b4cc4; }
+
+        /* TRANSCRIPT VIEW */
+        .turn-container {
+            display: flex;
+            margin-bottom: 15px; /* Spacing between distinct speakers */
+            position: relative;
+            z-index: 2; 
+        }
+
+        .turn-meta {
+            width: 240px;
+            padding-right: 15px;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            text-align: right;
+        }
+
+        .speaker-label {
+            font-size: 0.75rem;
+            font-weight: bold;
+            color: #b2bec3;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+        }
+
+        .tag {
+            font-size: 0.7rem; 
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 3px;
+            border: 1px solid rgba(0,0,0,0.05);
+            cursor: default;
+        }
+
+        .text-content {
+            flex-grow: 1;
+            white-space: pre-wrap;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.95rem;
+            line-height: 1.5; 
+            padding: 5px 0 5px 15px;
+            border-left: 3px solid #eee;
+            color: #444;
+        }
+
+        .highlighted-turn { background-color: rgba(255, 255, 0, 0.02); }
+
+        /* DECISION REGIONS */
+        details {
+            margin: 40px 0;
+            border: 1px solid #e1e4e8;
+            border-radius: 8px;
+            background-color: #fff;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            overflow: hidden;
+        }
+        details > summary {
+            background-color: #f1f3f5;
+            padding: 15px 20px;
+            cursor: pointer;
+            list-style: none; 
+            border-left: 6px solid var(--primary);
+        }
+        details > summary::-webkit-details-marker { display: none; }
+
+        .summary-header h3 { margin: 0 0 5px 0; font-size: 1.2rem; }
+        .summary-header p { margin: 5px 0 0 0; color: #636e72; font-size: 0.9rem;}
+
+        .region-flex-wrapper {
+            display: flex;
+            position: relative;
+            background-color: #fff;
+            border-top: 1px solid #eee;
+        }
+
+        /* HIERARCHICAL SIDEBAR */
+        .hierarchical-sidebar {
+            width: 280px; 
+            background: #fafbfc;
+            border-right: 1px solid #eee;
+            padding: 20px 15px;
+            flex-shrink: 0;
+            font-size: 0.85rem;
+            position: relative;
+            z-index: 5;
+        }
+        
+        .sidebar-group { margin-bottom: 25px; }
+        .sidebar-group-title {
+            font-weight: 700;
+            color: #2d3436;
+            margin-bottom: 8px;
+            border-bottom: 2px solid #dfe6e9;
+            padding-bottom: 4px;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .agg-badge {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: white;
+            padding: 6px 10px;
+            margin-bottom: 6px;
+            border-radius: 6px;
+            border-left: 4px solid #ccc;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            font-weight: 500;
+            transition: transform 0.2s;
+        }
+        .agg-badge:hover { transform: translateX(3px); }
+
+        /* SVG OVERLAY */
+        .connections-svg {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%; 
+            pointer-events: none;
+            z-index: 1;
+        }
+        path.connector-line {
+            fill: none; stroke-width: 2px; opacity: 0.3;
+        }
+
+        .transcript-flow {
+            flex-grow: 1;
+            padding: 30px 0;
+            position: relative; /* Ensure text stays inside */
+        }
+        
+        /* Utility */
+        .loading { display: none; text-align: center; padding: 20px; font-weight: bold; color: var(--primary); }
+        .error { color: #d63031; padding: 20px; text-align: center; }
+        .raw-json { width: 100%; height: 150px; margin-top: 30px; font-family: monospace; font-size: 10px; background: #333; color: #fff;}
+
+        /* Badges inside Summary */
+        .meta-badge {
+            display: inline-block; background: #dfe6e9; color: #636e72; 
+            padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>SDM Analyzer: Hierarchical View</h1>
+    
+    <div class="setup-box">
+        <label><strong>1. Google Gemini API Key:</strong></label>
+        <input type="text" id="apiKey" placeholder="AIzaSy...">
+        <label><strong>2. Transcript File (.txt):</strong></label>
+        <input type="file" id="fileInput" accept=".txt">
+        <button onclick="runAnalysis()">Analyze Transcript</button>
+    </div>
+
+    <div class="loading" id="loader">Processing... (Gemini 3 Pro)</div>
+    <div class="error" id="errorMsg"></div>
+    <div id="results"></div>
+</div>
+
+<script>
+/**
+ * ============================================================
+ *  SCHEMA DEFINITION
+ * ============================================================
+ */
+const SYSTEM_PROMPT = `
+You are an expert clinical conversation analyst measuring Shared Decision-Making (SDM) using the CCQ SDM RMF v0.1.
+
+**CORE TASK:**
+1. Break the transcript into discrete "Decisions".
+2. A decision MUST have "Options Implied" (choice between >1 path) to be counted.
+3. For each decision, identify the **Specific Options** discussed (e.g., "Surgery", "Medication").
+4. Classify behaviors and **LINK** them to the specific option they describe if applicable.
+
+**BEHAVIORS:**
+1. **Options Implied**: Introduction of choice.
+2. **Deliberation Support**: Helping patient think/delay.
+3. **Benefits Explained**: Pros of a specific option.
+4. **Risks Explained**: Cons/Side effects of a specific option.
+5. **Burdens/Practicalities**: Logistics/Costs of a specific option.
+6. **Values Engaged**: Eliciting or expressing goals/fears.
+7. **Questions Engaged**: Inviting or asking questions.
+8. **Preferences Engaged**: Asking/stating preference.
+9. **Preference Integration**: Linking plan to values.
+10. **Decision Stated**: Final plan.
+11. **Decision Deferred**: Plan to decide later.
+
+**OUTPUT FORMAT:**
+Return strict JSON.
+`;
+
+const RESPONSE_SCHEMA = {
+  "type": "object",
+  "properties": {
+    "regions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "start_turn_index": { "type": "integer", "description": "The index of the turn where this decision starts." },
+          "end_turn_index": { "type": "integer", "description": "The index of the turn where this decision ends." },
+          "decision_summary": { "type": "string" },
+          "rationale": { "type": "string" },
+          "options_discussed": {
+            "type": "array",
+            "description": "List of distinct options identified in this decision (e.g., 'Antibiotics', 'Wait and See').",
+            "items": {
+              "type": "object",
+              "properties": {
+                "option_id": { "type": "string", "description": "opt_1, opt_2" },
+                "label": { "type": "string", "description": "Short name for the option" }
+              },
+              "required": ["option_id", "label"]
+            }
+          },
+          "classified_turns": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "turn_index": { "type": "integer" },
+                "behaviors": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "behavior_name": { 
+                        "type": "string", 
+                        "enum": [
+                          "Options Implied", "Deliberation Support", "Benefits Explained", 
+                          "Risks Explained", "Burdens/Practicalities Explained", 
+                          "Values Engaged", "Questions Engaged", "Preferences Engaged", 
+                          "Preference Integration", "Decision Stated", "Decision Deferred with Plan"
+                        ]
+                      },
+                      "related_option_id": { 
+                        "type": "string", 
+                        "description": "The option_id this behavior refers to. Returns null if it applies to the general process." 
+                      }
+                    },
+                    "required": ["behavior_name"]
+                  }
+                }
+              },
+              "required": ["turn_index", "behaviors"]
+            }
+          }
+        },
+        "required": ["id", "start_turn_index", "end_turn_index", "options_discussed", "classified_turns"]
+      }
+    }
+  }
+};
+
+/**
+ * ============================================================
+ *  LOGIC
+ * ============================================================
+ */
+
+// 1. Color Helper
+function getColor(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    const c = (hash & 0x00FFFFFF).toString(16).toUpperCase();
+    const hex = "00000".substring(0, 6 - c.length) + c;
+    
+    // Pastel Mix
+    const r = parseInt(hex.substr(0, 2), 16);
+    const g = parseInt(hex.substr(2, 2), 16);
+    const b = parseInt(hex.substr(4, 2), 16);
+    
+    return `rgba(${r + (255-r)/2}, ${g + (255-g)/2}, ${b + (255-b)/2}, 1)`;
+}
+
+function cleanId(str) { return str.replace(/\W+/g, '_'); }
+
+// 2. Pre-processing: Group Text into Turns
+function parseTranscriptToTurns(rawText) {
+    const lines = rawText.split('\n');
+    const turns = [];
+    let currentTurn = null;
+
+    // Regex to detect speaker (e.g., "DOCTOR:", "Patient 01:", "Clinician:")
+    // Looking for lines that start with Uppercase words followed by colon or space
+    const speakerRegex = /^(DOCTOR|PATIENT|CLINICIAN|PROVIDER|MOM|DAD|FAMILY)(\s.*)?$/i;
+
+    lines.forEach((line) => {
+        const clean = line.trim();
+        if (!clean) return;
+
+        // Check if this line starts a new turn
+        // We look for patterns like "DOCTOR:" or "PATIENT Z708" 
+        // Simple heuristic: If line contains these keywords at start
+        let isStart = false;
+        if(clean.toUpperCase().includes("DOCTOR") || clean.toUpperCase().includes("PATIENT") || clean.toUpperCase().includes("CLINICIAN")) {
+             // Treat as start of turn if it matches known roles
+             isStart = true;
+        }
+
+        if (isStart) {
+            if (currentTurn) turns.push(currentTurn);
+            currentTurn = {
+                index: turns.length,
+                speaker_line: clean,
+                text_lines: []
+            };
+        } else {
+            if (currentTurn) {
+                currentTurn.text_lines.push(line); // Keep original whitespace for reading
+            } else {
+                // Metadata at top of file
+                currentTurn = {
+                    index: 0,
+                    speaker_line: "METADATA",
+                    text_lines: [line]
+                };
+            }
+        }
+    });
+    if (currentTurn) turns.push(currentTurn);
+    return turns;
+}
+
+// 3. Main Runner
+async function runAnalysis() {
+    const fileInput = document.getElementById('fileInput');
+    const apiKey = document.getElementById('apiKey').value;
+    const loader = document.getElementById('loader');
+    const results = document.getElementById('results');
+    const errBox = document.getElementById('errorMsg');
+
+    errBox.innerText = "";
+    results.innerHTML = "";
+    
+    if (!apiKey) { errBox.innerText = "API Key required"; return; }
+    if (!fileInput.files.length) { errBox.innerText = "File required"; return; }
+
+    loader.style.display = "block";
+
+    const file = fileInput.files[0];
+    const reader = new FileReader();
+
+    reader.onload = async (e) => {
+        try {
+            const rawText = e.target.result;
+            const turns = parseTranscriptToTurns(rawText);
+
+            // Prepare text for LLM: Use explicit Turn Indices
+            let llmInput = "";
+            turns.forEach(t => {
+                llmInput += `[TURN ${t.index}] ${t.speaker_line}\n${t.text_lines.join('\n')}\n\n`;
+            });
+
+            const jsonResponse = await callGemini(apiKey, llmInput);
+            renderHierarchicalView(jsonResponse, turns);
+
+        } catch (error) {
+            errBox.innerText = error.message;
+        } finally {
+            loader.style.display = "none";
+        }
+    };
+    reader.readAsText(file);
+}
+
+// 4. API Call
+async function callGemini(key, text) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent?key=${key}`;
+    const payload = {
+        contents: [{ parts: [{ text: `${SYSTEM_PROMPT}\n\nTRANSCRIPT:\n${text}` }] }],
+        generationConfig: { response_mime_type: "application/json", response_schema: RESPONSE_SCHEMA }
+    };
+
+    const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) throw new Error(await res.text());
+    const data = await res.json();
+    return JSON.parse(data.candidates[0].content.parts[0].text);
+}
+
+// 5. Rendering Logic
+function renderHierarchicalView(data, allTurns) {
+    const resultsDiv = document.getElementById('results');
+    let html = "";
+    let cursor = 0;
+
+    const regions = data.regions || [];
+    regions.sort((a,b) => a.start_turn_index - b.start_turn_index);
+
+    regions.forEach(region => {
+        // 1. Context before decision
+        const start = region.start_turn_index;
+        const end = region.end_turn_index;
+
+        if (start > cursor) {
+            html += `<div style="opacity:0.6; padding-left:300px;">`; // Indent context
+            for (let i = cursor; i < start; i++) {
+                if (allTurns[i]) html += renderTurn(allTurns[i], null);
+            }
+            html += `</div>`;
+        }
+
+        // 2. The Decision Region
+        html += renderRegionBlock(region, allTurns);
+
+        cursor = end + 1;
+    });
+
+    // Trailing Context
+    if (cursor < allTurns.length) {
+        html += `<div style="opacity:0.6; padding-left:300px;">`;
+        for (let i = cursor; i < allTurns.length; i++) {
+             if (allTurns[i]) html += renderTurn(allTurns[i], null);
+        }
+        html += `</div>`;
+    }
+
+    html += `<textarea class="raw-json">${JSON.stringify(data, null, 2)}</textarea>`;
+    resultsDiv.innerHTML = html;
+
+    setTimeout(updateAllSVGs, 500);
+}
+
+function renderRegionBlock(region, allTurns) {
+    // A. Build Behavior Maps
+    // Map: TurnIndex -> Array of Behavior Objects
+    const turnBehaviorMap = {};
+    const regionStats = { "General Process": [] }; 
+
+    // Initialize stats buckets for options
+    if (region.options_discussed) {
+        region.options_discussed.forEach(opt => {
+            regionStats[opt.option_id] = { label: opt.label, items: [] };
+        });
+    }
+
+    // Populate Maps
+    if (region.classified_turns) {
+        region.classified_turns.forEach(ct => {
+            const tIndex = ct.turn_index;
+            if (!turnBehaviorMap[tIndex]) turnBehaviorMap[tIndex] = [];
+
+            ct.behaviors.forEach(b => {
+                const color = getColor(b.behavior_name);
+                const uniqueId = Math.random().toString(36).substr(2, 9);
+                
+                // Add to Line Map for Rendering tags
+                turnBehaviorMap[tIndex].push({
+                    name: b.behavior_name,
+                    optId: b.related_option_id,
+                    color: color,
+                    uid: uniqueId
+                });
+
+                // Add to Stats for Sidebar
+                const targetOpt = b.related_option_id && regionStats[b.related_option_id] 
+                                  ? b.related_option_id 
+                                  : "General Process";
+                
+                if (targetOpt === "General Process") {
+                    regionStats["General Process"].push({ name: b.behavior_name, color: color, uid: uniqueId });
+                } else {
+                    regionStats[targetOpt].items.push({ name: b.behavior_name, color: color, uid: uniqueId });
+                }
+            });
+        });
+    }
+
+    // B. Build Sidebar HTML
+    let sidebarHtml = "";
+    
+    // 1. Render General First
+    if (regionStats["General Process"].length > 0) {
+        sidebarHtml += `<div class="sidebar-group">
+            <div class="sidebar-group-title">General / Process</div>`;
+        regionStats["General Process"].forEach(item => {
+            sidebarHtml += createSidebarBadge(item, region.id);
+        });
+        sidebarHtml += `</div>`;
+    }
+
+    // 2. Render Options
+    if (region.options_discussed) {
+        region.options_discussed.forEach(opt => {
+            const data = regionStats[opt.option_id];
+            if (data && data.items.length > 0) {
+                sidebarHtml += `<div class="sidebar-group">
+                    <div class="sidebar-group-title" title="${data.label}">${data.label}</div>`;
+                data.items.forEach(item => {
+                    sidebarHtml += createSidebarBadge(item, region.id);
+                });
+                sidebarHtml += `</div>`;
+            }
+        });
+    }
+
+    // C. Build Transcript Lines HTML
+    let linesHtml = "";
+    // Loop strictly from start index to end index provided by LLM
+    // Guard against out of bounds
+    const safeEnd = Math.min(region.end_turn_index, allTurns.length - 1);
+    
+    for (let i = region.start_turn_index; i <= safeEnd; i++) {
+        linesHtml += renderTurn(allTurns[i], turnBehaviorMap[i], region.id);
+    }
+
+    return `
+    <details open ontoggle="handleToggle(this)">
+        <summary>
+            <div class="summary-header">
+                <h3>${region.decision_summary}</h3>
+                <div>
+                    <span class="meta-badge">ID: ${region.id}</span>
+                    ${(region.options_discussed || []).map(o => `<span class="meta-badge" style="background:#fff; border:1px solid #ccc;">Opt: ${o.label}</span>`).join('')}
+                </div>
+                <p>${marked.parse(region.rationale || '')}</p>
+            </div>
+        </summary>
+        <div class="region-flex-wrapper" id="region-${region.id}">
+            <svg class="connections-svg" id="svg-${region.id}"></svg>
+            
+            <div class="hierarchical-sidebar">
+                <div style="position:sticky; top:20px;">
+                    ${sidebarHtml || '<div style="color:#999; font-style:italic;">No specific behaviors mapped.</div>'}
+                </div>
+            </div>
+
+            <div class="transcript-flow">
+                ${linesHtml}
+            </div>
+        </div>
+    </details>
+    `;
+}
+
+function createSidebarBadge(item, regionId) {
+    return `
+    <div class="agg-badge source-${regionId}" 
+         data-uid="${item.uid}"
+         style="border-left-color: ${item.color};">
+        <span>${item.name}</span>
+    </div>`;
+}
+
+function renderTurn(turnObj, behaviors, regionId) {
+    let tagsHtml = "";
+    let highlightClass = "";
+    let borderStyle = "";
+
+    if (behaviors && behaviors.length > 0) {
+        highlightClass = "highlighted-turn";
+        borderStyle = `border-left: 4px solid ${behaviors[0].color};`;
+        
+        behaviors.forEach(b => {
+            tagsHtml += `<div class="tag target-${regionId}" 
+                              data-uid="${b.uid}"
+                              style="background-color: ${b.color};">
+                              ${b.name}
+                         </div>`;
+        });
+    }
+
+    return `
+    <div class="turn-container ${highlightClass}">
+        <div class="turn-meta">
+            <div class="speaker-label">${turnObj.speaker_line}</div>
+            ${tagsHtml}
+        </div>
+        <div class="text-content" style="${borderStyle}">
+            ${turnObj.text_lines.join('\n')}
+        </div>
+    </div>
+    `;
+}
+
+// =======================
+// SVG DRAWING
+// =======================
+function drawLines(regionId) {
+    const svg = document.getElementById(`svg-${regionId}`);
+    const container = document.getElementById(`region-${regionId}`);
+    if (!svg || !container) return;
+
+    svg.innerHTML = ''; 
+    const width = container.offsetWidth;
+    const height = container.scrollHeight; 
+    svg.setAttribute('width', width);
+    svg.setAttribute('height', height);
+    
+    const contRect = container.getBoundingClientRect();
+    const sources = container.querySelectorAll(`.source-${regionId}`);
+    
+    sources.forEach(source => {
+        const uid = source.getAttribute('data-uid');
+        const color = source.style.borderLeftColor; // Grab color from border
+        
+        const srcRect = source.getBoundingClientRect();
+        const startX = (srcRect.right) - contRect.left;
+        const startY = (srcRect.top + srcRect.height / 2) - contRect.top;
+
+        const targets = container.querySelectorAll(`.target-${regionId}[data-uid="${uid}"]`);
+        
+        targets.forEach(target => {
+            const tgtRect = target.getBoundingClientRect();
+            const endX = (tgtRect.left) - contRect.left;
+            const endY = (tgtRect.top + tgtRect.height / 2) - contRect.top;
+
+            const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            
+            const cp1X = startX + 40; 
+            const cp1Y = startY;      
+            const cp2X = endX - 40;   
+            const cp2Y = endY;
+
+            const d = `M ${startX} ${startY} C ${cp1X} ${cp1Y}, ${cp2X} ${cp2Y}, ${endX} ${endY}`;
+
+            path.setAttribute("d", d);
+            path.setAttribute("class", "connector-line");
+            path.setAttribute("stroke", color);
+            
+            svg.appendChild(path);
+        });
+    });
+}
+
+function updateAllSVGs() {
+    document.querySelectorAll('details[open]').forEach(d => {
+        const content = d.querySelector('.region-flex-wrapper');
+        if(content && content.id) {
+            drawLines(content.id.replace('region-', ''));
+        }
+    });
+}
+
+function handleToggle(details) { if(details.open) setTimeout(updateAllSVGs, 50); }
+
+window.addEventListener('resize', updateAllSVGs);
+window.addEventListener('scroll', updateAllSVGs, true);
+
+</script>
+</body>
+</html>
