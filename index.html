@@ -234,16 +234,17 @@ You are an expert clinical conversation analyst measuring Shared Decision-Making
 
 **BEHAVIORS:**
 1. **Options Implied**: Introduction of choice.
-2. **Deliberation Support**: Helping patient think/delay.
+2. **Deliberation Support**: Helping patient think/delay. The deliberation needs to be directly related to the decision at hand.
 3. **Benefits Explained**: Pros of a specific option.
-4. **Risks Explained**: Cons/Side effects of a specific option.
+4. **Risks Explained**: Cons/Side effects of a specific option. Only the clinician can explain risks. Specific details should be given about any risks explained in order for this to count.
 5. **Burdens/Practicalities**: Logistics/Costs of a specific option.
-6. **Values Engaged**: Eliciting or expressing goals/fears.
+6. **Values Engaged**: Eliciting or expressing goals/fears. 
 7. **Questions Engaged**: Inviting or asking questions.
 8. **Preferences Engaged**: Asking/stating preference.
 9. **Preference Integration**: Linking plan to values.
 10. **Decision Stated**: Final plan.
 11. **Decision Deferred**: Plan to decide later.
+NOTE: It is possible for an overall Decision to not be completed with a "Decision stated" or "Decision deferred". It is crucial to capture if a "Decision stated" happens at the beginning of a decision and the same decision can be "stated" multiple times in the same decision. It can also change if the clinician starts with a decision then works with the patient to come to the same or different decision.
 
 **OUTPUT FORMAT:**
 Return strict JSON.
@@ -430,7 +431,15 @@ async function callGemini(key, text) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent?key=${key}`;
     const payload = {
         contents: [{ parts: [{ text: `${SYSTEM_PROMPT}\n\nTRANSCRIPT:\n${text}` }] }],
-        generationConfig: { response_mime_type: "application/json", response_schema: RESPONSE_SCHEMA }
+        generationConfig: { 
+            response_mime_type: "application/json", 
+            response_schema: RESPONSE_SCHEMA,
+            
+            temperature: 0,        // Forces the model to be less random (See warning below for Gemini 3)
+            top_k: 1,              // "Greedy decoding": always picks the single most likely next token
+            top_p: 1.0,            // Disables nucleus sampling (relies purely on top_k)
+            seed: 42               // Integer (e.g., 42) ensures the same "random" state is used every time
+        }
     };
 
     const res = await fetch(url, {
