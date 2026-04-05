@@ -397,51 +397,58 @@
  * ============================================================
  */
 
-// // STEP 1: SEGMENTATION PROMPT
 // const SEGMENTATION_PROMPT = `
-// You are an expert clinical conversation analyst. Your ONLY goal in this step is to split the transcript into distinct "Shared Decision-Making (SDM) Events".
+// You are an expert clinical conversation analyst. Your ONLY goal is to EXTRACT specific "Shared Decision-Making (SDM) Events" from the transcript.
 
-// CRITERIA FOR A REGION:
-// 1. It must involve a medical decision where options are implied (Choice Talk).
-// 2. If there are multiple distinct medical decisions (e.g., one about medication, one about surgery later), split them into separate regions.
-// 3. Capture the full context: start slightly before the topic is introduced and end after the decision is made or deferred.
+// CRITICAL INSTRUCTIONS:
+// 1. DO NOT segment the entire transcript. SKIP small talk, history gathering, routine check-ins, and physical exams.
+// 2. IGNORE routine instructions (e.g., "get blood work", "follow up in 2 weeks"). These are NOT shared decisions.
+// 3. ONLY extract regions where a SPECIFIC medical decision is actively being debated and options are explicitly implied (Choice Talk). 
+// 4. TIER 0 DECISIONS: Pay close attention to decisions where doing nothing, watchful waiting, continuing current care without changes, or refusing an intervention are discussed. 
+// 5. SINGLE CONTIGUOUS SEGMENT PER ISSUE: DO NOT create overlapping segments for the same medical condition. 
+// 6. BEWARE OF TANGENTS & INTERLEAVED CONVERSATIONS: Medical conversations often jump around. If a treatment is proposed, and the conversation goes on a tangent (e.g., discussing stress, jobs, or diet), but later returns to the EXACT SAME treatment to discuss its name, side effects, or pharmacy logistics, YOU MUST encompass the entire span (including the tangent) in ONE contiguous segment. Do not stop at the first "okay".
+// 7. SCAN FOR RESOLUTION: A medication decision segment is not truly complete until the specific drug name, side effects, or prescribing logistics (e.g., "sent to the pharmacy") are discussed. Scan ahead in the transcript to ensure you are capturing the true end of the conversation.
+// 8. If no decisions are present, output an empty array:[]
 // `;
-
 // const CLASSIFICATION_PROMPT_TEMPLATE = `
 // You are analyzing a specific segment of a clinical transcript for Shared Decision-Making (SDM).
 
-// **TAXONOMY DEFINITIONS (Strictly Follow These):**
+// CRITICAL INSTRUCTIONS TO PREVENT HALLUCINATIONS & ENSURE ACCURACY:
+// - DO NOT default to generic options like "continue current medication" or "switch to new medication" unless the text EXPLICITLY discusses medications. If they are discussing physical therapy, imaging, surgery, or lifestyle changes, state those exact options.
+// - TIER 0 OPTIONS: You MUST extract "status quo" options if they are discussed. "Watchful waiting", "do nothing", "continue current care", and "not escalating treatment" are highly important options to capture.
+// - EXACT TURN LINKING: The transcript text contains turn markers like [TURN 45]. When classifying a behavior on that line, you MUST extract the exact integer (e.g., 45) for the turn_index. Do not guess line numbers.
+// - ACROSS TANGENTS: Behaviors related to a single option may be scattered. For example, "Options Implied" might happen at Turn 309, but "Explaining Risks/Side effects" might not happen until Turn 379. Link them to the same Option ID.
+// **TAXONOMY DEFINITIONS:**
 
 // I. CHOICE TALK
-// 1. **Options Implied** (Clinician OR Patient): Clinician communicates >1 path exists, OR patient raises option and clinician confirms choices exist. 
+// 1. **Options Implied**: Clinician communicates >1 path exists.
 //     - *Positive:* "We could start meds or wait."
 //     - *Negative:* "You need to take this." (No choice offered).
 
 // II. OPTION TALK
-// 2. **Support for Deliberation** (Clinician): Clinician reassures patient they will help them think through options/deliberate.
-//    - *Positive:* "We can take time to go through this."
-// 3. **Explaining Benefits** (Clinician): Clinician describes advantages/therapeutic effects of a SPECIFIC option.
-// 4. **Explaining Risks** (Clinician): Clinician describes harms/complications of a SPECIFIC option.
-// 5. **Explaining Burdens/Practicalities** (Clinician): Logistics, costs, monitoring of a SPECIFIC option.
-// 6. **Values Exploration** (Clinician): Asking what matters to patient regarding this decision.
-// 7. **Patient Values Expressed** (Patient): Patient articulates fears, goals, preferences.
-// 8. **Questions Invited** (Clinician): Clinician invites questions.
-// 9. **Patient Questions Asked** (Patient): Patient asks clarifying/decisional questions.
+// 2. **Support for Deliberation**: Clinician reassures patient they will help them think through options/deliberate.
+// 3. **Explaining Benefits**: Clinician describes advantages/therapeutic effects of a SPECIFIC option.
+// 4. **Explaining Risks**: Clinician describes harms/complications of a SPECIFIC option.
+// 5. **Explaining Burdens/Practicalities**: Logistics, costs, monitoring of a SPECIFIC option.
+// 6. **Values Exploration**: Asking what matters to patient regarding this decision.
+// 7. **Patient Values Expressed**: Patient articulates fears, goals, preferences.
+// 8. **Questions Invited**: Clinician invites questions.
+// 9. **Patient Questions Asked**: Patient asks clarifying/decisional questions.
 
 // III. DECISION TALK
-// 10. **Preferences Elicited** (Clinician): Clinician asks for patient preference ("Which do you prefer?").
-// 11. **Preference Integration** (Clinician): Linking plan to patient values ("Since you want to avoid needles...").
-// 12. **Decision Stated** (Clinician OR Patient): A clear decision/plan is stated.
-// 13. **Decision Deferred with Plan** (Clinician): Proposing a delay with a structured follow-up.
+// 10. **Preferences Elicited**: Clinician asks for patient preference.
+// 11. **Preference Integration**: Clinician explicitly links the proposed plan to the patient's previously stated values, goals, or preferences (e.g., "Since you want to avoid surgery, let's try physical therapy", "Because you are worried about side effects, we will stay at the current dose").
+// 12. **Decision Stated**: A clear decision/plan is stated.
+// 13. **Decision Deferred with Plan**: Proposing a delay with a structured follow-up.
 
 // **TASK:**
-// 1. Identify the **Specific Options** discussed in this segment (e.g., "Surgery", "Medication").
-// 2. Classify every relevant sentence/turn using the behaviors above.
-// 3. **LINK** behaviors (Benefits, Risks, Burdens) to the specific Option ID they describe.
-// 4. **CONFIDENCE SCORE:** Assign a score (0-100) to each behavior based on how explicitly it fits the definition (100 = Explicit/Clear, 0 = Ambiguous/Guess).
+// 1. Identify the **Specific Options** actually discussed in this specific segment.
+// 2. Classify relevant sentences/turns using the behaviors above. 
+// 3. **LINK** behaviors to the specific Option ID they describe.
+// 4. **CONFIDENCE SCORE:** Assign a score (0-100).
 // `;
 
-// // STEP 1 SCHEMA
+// // # --- SCHEMAS ---
 // const SEGMENTATION_SCHEMA = {
 //   "type": "object",
 //   "properties": {
@@ -452,10 +459,14 @@
 //         "properties": {
 //           "id": { "type": "string" },
 //           "summary": { "type": "string" },
+//           "boundary_rationale": { 
+//             "type": "string",
+//             "description": "Explain exactly where the topic is first introduced, whether there are any tangents, and exactly which turn contains the final logistical conclusion (like side effects or pharmacy instructions) BEFORE choosing the indices."
+//           },
 //           "start_turn_index": { "type": "integer" },
 //           "end_turn_index": { "type": "integer" }
 //         },
-//         "required": ["id", "summary", "start_turn_index", "end_turn_index"]
+//         "required":["id", "summary", "boundary_rationale", "start_turn_index", "end_turn_index"]
 //       }
 //     }
 //   }
@@ -473,7 +484,7 @@
 //           "option_id": { "type": "string" },
 //           "label": { "type": "string" }
 //         },
-//         "required": ["option_id", "label"]
+//         "required":["option_id", "label"]
 //       }
 //     },
 //     "classified_turns": {
@@ -487,65 +498,117 @@
 //             "items": {
 //               "type": "object",
 //               "properties": {
-//                 "behavior_name": { 
+//                 "behavior_name": {
 //                   "type": "string",
-//                   "enum": [
-//                     "Options Implied", "Support for Deliberation", "Explaining Benefits", 
-//                     "Explaining Risks", "Explaining Burdens/Practicalities", 
-//                     "Values Exploration", "Patient Values Expressed", 
-//                     "Questions Invited", "Patient Questions Asked", 
-//                     "Preferences Elicited", "Preference Integration", 
+//                   "enum":[
+//                     "Options Implied", "Support for Deliberation", "Explaining Benefits",
+//                     "Explaining Risks", "Explaining Burdens/Practicalities",
+//                     "Values Exploration", "Patient Values Expressed",
+//                     "Questions Invited", "Patient Questions Asked",
+//                     "Preferences Elicited", "Preference Integration",
 //                     "Decision Stated", "Decision Deferred with Plan"
 //                   ]
 //                 },
 //                 "related_option_id": { "type": "string", "nullable": true },
-//                 "confidence_score": { 
-//                    "type": "integer", 
-//                    "minimum": 0, 
-//                    "maximum": 100,
-//                   "description": "0 to 100 rating of certainty for this classification."
+//                 "confidence_score": {
+//                    "type": "integer",
+//                    "minimum": 0,
+//                    "maximum": 100
 //                 }
 //               },
-//               "required": ["behavior_name", "confidence_score"]
+//               "required":["behavior_name", "confidence_score"]
 //             }
 //           }
 //         },
-//         "required": ["turn_index", "behaviors"]
+//         "required":["turn_index", "behaviors"]
 //       }
 //     }
 //   }
 // };
 
-const SEGMENTATION_PROMPT = `
-You are an expert clinical conversation analyst. Your ONLY goal is to EXTRACT specific "Shared Decision-Making (SDM) Events" from the transcript.
+const BROAD_SEGMENTATION_PROMPT = `
+You are an expert clinical conversation analyst. Your ONLY goal is to EXTRACT the broad conversational boundaries of "Shared Decision-Making (SDM) Events" and clinical decisions from the transcript.
 
 CRITICAL INSTRUCTIONS:
-1. DO NOT segment the entire transcript. SKIP small talk, history gathering, routine check-ins, and physical exams.
-2. IGNORE routine instructions (e.g., "get blood work", "follow up in 2 weeks"). These are NOT shared decisions.
-3. ONLY extract regions where a SPECIFIC medical decision is actively being debated and options are explicitly implied (Choice Talk). 
-4. TIER 0 DECISIONS: Pay close attention to decisions where doing nothing, watchful waiting, continuing current care without changes, or refusing an intervention are discussed. 
-5. SINGLE CONTIGUOUS SEGMENT PER ISSUE: DO NOT create overlapping segments for the same medical condition. 
-6. BEWARE OF TANGENTS & INTERLEAVED CONVERSATIONS: Medical conversations often jump around. If a treatment is proposed, and the conversation goes on a tangent (e.g., discussing stress, jobs, or diet), but later returns to the EXACT SAME treatment to discuss its name, side effects, or pharmacy logistics, YOU MUST encompass the entire span (including the tangent) in ONE contiguous segment. Do not stop at the first "okay".
-7. SCAN FOR RESOLUTION: A medication decision segment is not truly complete until the specific drug name, side effects, or prescribing logistics (e.g., "sent to the pharmacy") are discussed. Scan ahead in the transcript to ensure you are capturing the true end of the conversation.
-8. If no decisions are present, output an empty array:[]
+1. ALLOW OVERLAPPING SEGMENTS: It is completely acceptable and expected for different medical decisions to overlap. If the clinician talks about blood pressure, switches to prostate medication, and goes back to blood pressure, create separate events for each, even if their start and end indices overlap.
+2. ADMINISTRATIVE/LOGISTICAL DECISIONS: Include administrative choices IF they have clinical implications (e.g., choosing a specific specialist location, selecting a dialysis facility, or setting a follow-up interval). Do not ignore them just because they are logistical.
+3. EXCLUDE FALSE POSITIVES: 
+   - Information Gathering: Do NOT flag patient-driven questions where the clinician just answers without offering a clinical path (e.g., Patient: "Should I take a vitamin?" -> Clinician: "No, your labs are fine").
+   - Unilateral Refusals: Do NOT flag immediate patient refusals (e.g., "I don't do vaccines") IF the clinician accepts it without offering counseling or exploring options.
+4. CAST A WIDE NET: For each decision, identify the FIRST time the context/topic is mentioned, and the LAST time a relevant logistical conclusion (e.g., side effects, pharmacy routing) is discussed. It is okay if there is unrelated conversation in between these two points.
+5. If no decisions are present, output an empty array: []
 `;
+
+const BROAD_SEGMENTATION_SCHEMA = {
+  "type": "object",
+  "properties": {
+    "decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "summary": { "type": "string" },
+          "decision_type": { 
+             "type": "string", 
+             "enum": ["Clinical", "Administrative/Logistical"],
+             "description": "Flag whether this is purely clinical or a clinically-relevant administrative choice."
+          },
+          "boundary_rationale": { 
+            "type": "string",
+            "description": "Explain exactly where the topic context is first introduced and exactly where the final logistical conclusion happens."
+          },
+          "broad_start_turn_index": { "type": "integer" },
+          "broad_end_turn_index": { "type": "integer" }
+        },
+        "required": ["id", "summary", "decision_type", "boundary_rationale", "broad_start_turn_index", "broad_end_turn_index"]
+      }
+    }
+  }
+};
+
+const RELEVANCE_FILTERING_PROMPT = `
+You are an expert clinical data parser. You will be provided with a specific "Decision Topic" and a chunk of a clinical transcript where this topic is discussed.
+
+Medical conversations are highly discontinuous. A doctor and patient might start discussing a medication, take a long tangent to discuss an unrelated issue (like joint pain, small talk, or a different medication), and then return to the original medication to finalize the prescription.
+
+Your ONLY task is to identify the exact turn indices that are RELEVANT to the provided Decision Topic. 
+
+CRITICAL INSTRUCTIONS:
+1. STRIP THE HAYSTACK: Remove all turn indices that correspond to small talk, physical exams, or interleaved tangents about entirely different medical conditions.
+2. KEEP CONTEXT: Keep turns that provide necessary clinical context for the specific decision being made.
+3. OUTPUT: Provide an array of strictly the integer turn numbers that form the cohesive discussion for this specific decision.
+`;
+
+const RELEVANCE_FILTERING_SCHEMA = {
+  "type": "object",
+  "properties": {
+    "decision_id": { "type": "string" },
+    "relevant_turn_indices": {
+      "type": "array",
+      "items": { "type": "integer" },
+      "description": "An array of exact turn indices that pertain to the target decision topic, omitting unrelated tangents."
+    }
+  },
+  "required": ["decision_id", "relevant_turn_indices"]
+};
+
 const CLASSIFICATION_PROMPT_TEMPLATE = `
-You are analyzing a specific segment of a clinical transcript for Shared Decision-Making (SDM).
+You are analyzing a filtered, highly-relevant segment of a clinical transcript for Shared Decision-Making (SDM). You will only see the lines relevant to ONE specific decision.
 
 CRITICAL INSTRUCTIONS TO PREVENT HALLUCINATIONS & ENSURE ACCURACY:
-- DO NOT default to generic options like "continue current medication" or "switch to new medication" unless the text EXPLICITLY discusses medications. If they are discussing physical therapy, imaging, surgery, or lifestyle changes, state those exact options.
-- TIER 0 OPTIONS: You MUST extract "status quo" options if they are discussed. "Watchful waiting", "do nothing", "continue current care", and "not escalating treatment" are highly important options to capture.
-- EXACT TURN LINKING: The transcript text contains turn markers like [TURN 45]. When classifying a behavior on that line, you MUST extract the exact integer (e.g., 45) for the turn_index. Do not guess line numbers.
-- ACROSS TANGENTS: Behaviors related to a single option may be scattered. For example, "Options Implied" might happen at Turn 309, but "Explaining Risks/Side effects" might not happen until Turn 379. Link them to the same Option ID.
-**TAXONOMY DEFINITIONS:**
+1. OPTION NAMING MATTERS: Do not just list drug names (e.g., "Proscar"). Use active phrasing indicating the actual choice, such as "Continue current Flomax", "Add Proscar to regimen", "Stop Maalox", or "Switch to new medication".
+2. TIER 0 & STATUS QUO OPTIONS: You MUST extract "status quo" options if they are implied. "Watchful waiting", "do nothing", "continue current care", and "not escalating treatment" are highly important options to capture.
+3. STRONG RECOMMENDATIONS: Even if a clinician gives a strong, singular recommendation (e.g., "I really think we should drop the Maalox"), if an alternative is biologically/logically implied (e.g., "Keep the Maalox"), you should extract both options and identify the behavior as "Options Implied".
+4. EXACT TURN LINKING: When classifying a behavior, you MUST extract the exact integer for the turn_index provided in the text.
+5. ACROSS TANGENTS: Because you are reading a filtered transcript, you may notice jumps in the turn numbers. This is intentional. Link scattered behaviors (e.g., "Options Implied" at Turn 132, "Explaining Risks" at Turn 216) to the same Option ID.
 
+**TAXONOMY DEFINITIONS:**
 I. CHOICE TALK
 1. **Options Implied**: Clinician communicates >1 path exists.
-    - *Positive:* "We could start meds or wait."
-    - *Negative:* "You need to take this." (No choice offered).
+2. **Support for Deliberation**: Clinician reassures patient they will help them think through options/deliberate.
 
 II. OPTION TALK
-2. **Support for Deliberation**: Clinician reassures patient they will help them think through options/deliberate.
 3. **Explaining Benefits**: Clinician describes advantages/therapeutic effects of a SPECIFIC option.
 4. **Explaining Risks**: Clinician describes harms/complications of a SPECIFIC option.
 5. **Explaining Burdens/Practicalities**: Logistics, costs, monitoring of a SPECIFIC option.
@@ -556,40 +619,16 @@ II. OPTION TALK
 
 III. DECISION TALK
 10. **Preferences Elicited**: Clinician asks for patient preference.
-11. **Preference Integration**: Clinician explicitly links the proposed plan to the patient's previously stated values, goals, or preferences (e.g., "Since you want to avoid surgery, let's try physical therapy", "Because you are worried about side effects, we will stay at the current dose").
+11. **Preference Integration**: Clinician explicitly links the proposed plan to the patient's previously stated values, goals, or preferences.
 12. **Decision Stated**: A clear decision/plan is stated.
 13. **Decision Deferred with Plan**: Proposing a delay with a structured follow-up.
 
 **TASK:**
-1. Identify the **Specific Options** actually discussed in this specific segment.
+1. Identify the **Specific Options** actually discussed (using active phrasing).
 2. Classify relevant sentences/turns using the behaviors above. 
 3. **LINK** behaviors to the specific Option ID they describe.
 4. **CONFIDENCE SCORE:** Assign a score (0-100).
 `;
-
-// # --- SCHEMAS ---
-const SEGMENTATION_SCHEMA = {
-  "type": "object",
-  "properties": {
-    "segments": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "id": { "type": "string" },
-          "summary": { "type": "string" },
-          "boundary_rationale": { 
-            "type": "string",
-            "description": "Explain exactly where the topic is first introduced, whether there are any tangents, and exactly which turn contains the final logistical conclusion (like side effects or pharmacy instructions) BEFORE choosing the indices."
-          },
-          "start_turn_index": { "type": "integer" },
-          "end_turn_index": { "type": "integer" }
-        },
-        "required":["id", "summary", "boundary_rationale", "start_turn_index", "end_turn_index"]
-      }
-    }
-  }
-};
 
 const CLASSIFICATION_SCHEMA = {
   "type": "object",
@@ -601,7 +640,10 @@ const CLASSIFICATION_SCHEMA = {
         "type": "object",
         "properties": {
           "option_id": { "type": "string" },
-          "label": { "type": "string" }
+          "label": { 
+            "type": "string",
+            "description": "Use active phrasing: e.g., 'Continue Flomax', 'Add Proscar', 'Do nothing/Watchful waiting'"
+          }
         },
         "required":["option_id", "label"]
       }
@@ -629,11 +671,7 @@ const CLASSIFICATION_SCHEMA = {
                   ]
                 },
                 "related_option_id": { "type": "string", "nullable": true },
-                "confidence_score": {
-                   "type": "integer",
-                   "minimum": 0,
-                   "maximum": 100
-                }
+                "confidence_score": { "type": "integer", "minimum": 0, "maximum": 100 }
               },
               "required":["behavior_name", "confidence_score"]
             }
