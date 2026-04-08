@@ -3,529 +3,143 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CCQ SDM RMF v0.3 Analyzer - Dashboard View</title>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <title>CCQ SDM Pipeline v0.4 - 3-Step Analyzer</title>
     <style>
         :root {
-            --primary: #6c5ce7;
-            --secondary: #a29bfe;
-            --success: #00b894;
-            --warning: #fdcb6e;
-            --danger: #d63031;
-            --bg: #f8f9fa;
-            --text: #2d3436;
-            --border: #dfe6e9;
+            --primary: #4a69bd;
+            --bg: #f5f6fa;
+            --text: #2f3640;
+            --border: #dcdde1;
         }
-
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: var(--bg);
             color: var(--text);
             margin: 0; padding: 20px;
         }
-
         .container {
-            max-width: 1300px;
+            max-width: 1400px;
             margin: 0 auto;
             background: white;
-            padding: 40px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            padding: 30px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
             border-radius: 8px;
         }
-
-        h1 { text-align: center; color: #2c3e50; margin-bottom: 20px; }
-
+        h1, h2, h3 { color: #2c3e50; }
+        
         /* SETUP BOX */
         .setup-box {
-            background: #eef2f3;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 30px;
-            border: 1px solid #dde1e3;
+            background: #f1f2f6; padding: 20px; border-radius: 8px;
+            margin-bottom: 30px; border: 1px solid #dfe4ea;
         }
         input[type="text"], input[type="file"] {
             width: 100%; padding: 10px; margin: 5px 0 15px 0;
             border-radius: 4px; border: 1px solid #ccc;
         }
         button {
-            background-color: var(--primary);
-            color: white; border: none;
-            padding: 10px 20px; border-radius: 4px;
-            cursor: pointer; font-size: 1rem;
+            background-color: var(--primary); color: white; border: none;
+            padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 1rem;
         }
-        button:hover { background-color: #5b4cc4; }
+        button:hover { background-color: #3c55a5; }
 
-        /* ==========================
-           DASHBOARD STYLES (NEW)
-           ========================== */
-        .dashboard-container {
-            background: #fff;
-            margin-bottom: 40px;
-            border-radius: 8px;
-        }
-
-        .dashboard-header {
-            border-bottom: 2px solid #f1f2f6;
-            padding-bottom: 15px;
-            margin-bottom: 20px;
-        }
-
+        /* DASHBOARD */
         .dashboard-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
             gap: 20px;
+            margin-bottom: 40px;
         }
-
         .decision-card {
-            border: 1px solid #e1e4e8;
-            border-radius: 8px;
+            border: 1px solid #e1e4e8; border-radius: 8px; padding: 20px;
+            background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+            border-top: 5px solid #ccc; /* Will be overwritten by JS color */
+        }
+        .card-header h4 { margin: 0 0 5px 0; font-size: 1.1rem; }
+        .badge {
+            display: inline-block; padding: 4px 8px; border-radius: 4px;
+            font-size: 0.75rem; font-weight: bold; background: #eee;
+        }
+
+        /* ABSTRACTED DECISION MAPS */
+        .decision-map-container {
+            display: flex; flex-direction: column; gap: 20px; margin-bottom: 40px;
+        }
+        .decision-map-box {
+            border: 1px solid #dcdde1; border-radius: 8px; background: #fff;
             padding: 20px;
-            background: #fff;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.03);
-            transition: transform 0.2s, box-shadow 0.2s;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
         }
-        .decision-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 12px rgba(0,0,0,0.08);
+        .map-options {
+            background: #f8f9fa; padding: 15px; border-radius: 6px; margin-bottom: 15px;
         }
+        .map-behaviors {
+            display: flex; flex-wrap: wrap; gap: 10px;
+        }
+        .behavior-pill {
+            background: #e8ecf1; border: 1px solid #d1d8e0; border-radius: 20px;
+            padding: 5px 12px; font-size: 0.85rem; display: flex; align-items: center; gap: 8px;
+        }
+        .behavior-pill.invalid { text-decoration: line-through; opacity: 0.5; }
 
-        .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 15px;
+        /* GLOBAL TRANSCRIPT */
+        .global-transcript {
+            background: #fff; border: 1px solid #dcdde1; border-radius: 8px;
+            padding: 20px;
         }
-        .card-title {
-            font-weight: 700;
-            color: #2c3e50;
-            font-size: 1.1rem;
-            margin: 0;
-        }
-        .card-id {
-            font-size: 0.75rem;
-            color: #b2bec3;
-            text-transform: uppercase;
-        }
-
-        .status-pill {
-            display: inline-block;
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        .status-completed { background: #e6fffa; color: #00b894; border: 1px solid #b2f5ea; }
-        .status-deferred { background: #fff8e1; color: #ffa000; border: 1px solid #ffecb3; }
-        .status-ongoing { background: #e3f2fd; color: #1976d2; border: 1px solid #bbdefb; }
-
-        /* SDM Step Flow Visual */
-        .sdm-steps {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin: 15px 0;
-            position: relative;
-        }
-        .sdm-steps::before {
-            content: '';
-            position: absolute;
-            top: 50%; left: 10px; right: 10px;
-            height: 2px; background: #dfe6e9;
-            z-index: 1;
-        }
-        .step-dot {
-            width: 12px; height: 12px;
-            border-radius: 50%;
-            background: #dfe6e9;
-            z-index: 2;
-            position: relative;
-            border: 2px solid #fff;
-            box-shadow: 0 0 0 2px #dfe6e9;
-        }
-        .step-dot.active {
-            background: var(--primary);
-            box-shadow: 0 0 0 2px var(--primary);
-        }
-        .step-label {
-            position: absolute;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            font-size: 0.65rem;
-            color: #636e72;
-            width: 60px;
-            text-align: center;
-            font-weight: 600;
-        }
-        .step-wrapper { position: relative; }
-
-        .attribute-tags {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 5px;
-            margin-top: 25px; /* space for step labels */
-        }
-        .attr-badge {
-            font-size: 0.7rem;
-            padding: 2px 8px;
-            border-radius: 4px;
-            background: #f1f2f6;
-            color: #636e72;
-            border: 1px solid #dfe6e9;
-        }
-        .attr-badge.present {
-            background: #e8eaf6;
-            color: #3f51b5;
-            border-color: #c5cae9;
-            font-weight: 600;
-        }
-
-        .options-list {
-            margin-top: 15px;
-            font-size: 0.85rem;
-            color: #636e72;
-            background: #fafbfc;
-            padding: 10px;
-            border-radius: 6px;
-        }
-        .options-list strong { color: #2d3436; display: block; margin-bottom: 4px; }
-
-
-        /* TRANSCRIPT VIEW */
         .turn-container {
-            display: flex;
-            margin-bottom: 15px;
-            position: relative;
-            z-index: 2;
-            transition: background-color 0.5s ease;
-            border-radius: 4px;
+            display: flex; margin-bottom: 10px; border-radius: 6px;
+            border-left: 4px solid transparent;
         }
-
         .turn-meta {
-            width: 240px;
-            padding-right: 15px;
-            flex-shrink: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-            text-align: right;
+            width: 150px; flex-shrink: 0; padding: 10px;
+            font-size: 0.8rem; font-weight: bold; color: #7f8fa6;
+            text-align: right; border-right: 2px solid #f1f2f6;
         }
-
-        .speaker-label {
-            font-size: 0.75rem;
-            font-weight: bold;
-            color: #b2bec3;
-            margin-bottom: 4px;
-            text-transform: uppercase;
+        .turn-content {
+            flex-grow: 1; padding: 10px 15px; font-family: monospace;
+            font-size: 0.95rem; line-height: 1.5; white-space: pre-wrap;
         }
-
-        .tag {
-            font-size: 0.7rem;
-            padding: 3px 8px;
-            border-radius: 4px;
-            font-weight: 600;
-            color: #333;
-            margin-bottom: 3px;
-            border: 1px solid rgba(0,0,0,0.05);
-            cursor: default;
-            display: flex;
-            align-items: center;
-            gap: 5px;
+        .turn-tags {
+            display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 5px;
         }
-
-        /* New style for invalidated tags */
-        .tag.invalid-behavior {
-            text-decoration: line-through;
-            opacity: 0.5;
-            filter: grayscale(0.8);
-        }
-
-        .text-content {
-            flex-grow: 1;
-            white-space: pre-wrap;
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 0.95rem;
-            line-height: 1.5;
-            padding: 5px 0 5px 15px;
-            border-left: 3px solid #eee;
-            color: #444;
-        }
-
-        .highlighted-turn { background-color: rgba(255, 255, 0, 0.02); }
-
-        /* DECISION REGIONS */
-        details {
-            margin: 40px 0;
-            border: 1px solid #e1e4e8;
-            border-radius: 8px;
-            background-color: #fff;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-            overflow: hidden;
-        }
-        details > summary {
-            background-color: #f1f3f5;
-            padding: 15px 20px;
-            cursor: pointer;
-            list-style: none;
-            border-left: 6px solid var(--primary);
-        }
-        details > summary::-webkit-details-marker { display: none; }
-
-        .summary-header h3 { margin: 0 0 5px 0; font-size: 1.2rem; }
-        .summary-header p { margin: 5px 0 0 0; color: #636e72; font-size: 0.9rem;}
-
-        .region-flex-wrapper {
-            display: flex;
-            position: relative;
-            background-color: #fff;
-            border-top: 1px solid #eee;
-        }
-
-        /* HIERARCHICAL SIDEBAR */
-        .hierarchical-sidebar {
-            width: 280px;
-            background: #fafbfc;
-            border-right: 1px solid #eee;
-            padding: 20px 15px;
-            flex-shrink: 0;
-            font-size: 0.85rem;
-            position: relative;
-            z-index: 5;
-        }
-
-        .sidebar-group { margin-bottom: 25px; }
-        .sidebar-group-title {
-            font-weight: 700;
-            color: #2d3436;
-            margin-bottom: 8px;
-            border-bottom: 2px solid #dfe6e9;
-            padding-bottom: 4px;
-            font-size: 0.8rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .agg-badge {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: white;
-            padding: 6px 10px;
-            margin-bottom: 6px;
-            border-radius: 6px;
-            border-left: 4px solid #ccc;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-            font-weight: 500;
-            transition: transform 0.2s;
-            cursor: pointer;
-
-        }
-        .agg-badge:hover {
-            transform: translateX(3px);
-            background-color: #f0f0f0;
-        }
-        /* Style for sidebar invalidated items */
-        .agg-badge.invalid-behavior {
-            text-decoration: line-through;
-            opacity: 0.5;
-            background: #f4f4f4;
-        }
-
-        /* SVG OVERLAY */
-        .connections-svg {
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            pointer-events: none;
-            z-index: 10;
-
-        }
-        path.connector-line {
-            fill: none; stroke-width: 2px; opacity: 0.5;
-
-        }
-        /* Faint lines for invalid connections */
-        path.connector-line.invalid-line {
-            stroke-dasharray: 4;
-            opacity: 0.2;
-        }
-
-        .transcript-flow {
-            flex-grow: 1;
-            padding: 30px 0;
-            position: relative;
+        .text-tag {
+            font-size: 0.7rem; padding: 2px 6px; border-radius: 4px;
+            font-family: sans-serif; font-weight: bold; color: #fff;
         }
 
         /* Utility */
-        .loading { display: none; padding: 20px; border: 1px solid #b2bec3; background: #dfe6e9; margin-bottom:20px; border-radius:4px; }
-        .log-entry { margin: 5px 0; font-family: monospace; font-size: 0.9rem; }
-        .error { color: #d63031; padding: 20px; text-align: center; }
-        .raw-json { width: 100%; height: 150px; margin-top: 30px; font-family: monospace; font-size: 10px; background: #333; color: #fff;}
-        .meta-badge { display: inline-block; background: #dfe6e9; color: #636e72; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; margin-right: 8px; }
+        .loading { display: none; padding: 20px; background: #f1f2f6; margin-bottom:20px; border-radius:4px; font-family: monospace;}
+        .error { color: #e84118; margin-top: 10px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>SDM Analyzer: Executive Summary & Transcript</h1>
+    <h1>SDM Analyzer: 3-Step Pipeline</h1>
     
     <div class="setup-box">
         <label><strong>1. Google Gemini API Key:</strong></label>
         <input type="text" id="apiKey" placeholder="AIzaSy...">
         <label><strong>2. Transcript File (.txt):</strong></label>
         <input type="file" id="fileInput" accept=".txt">
-        <button onclick="runAnalysis()">Analyze Transcript</button>
+        <button onclick="runAnalysis()">Run 3-Step Pipeline</button>
+        <div class="error" id="errorMsg"></div>
     </div>
 
     <div class="loading" id="loader">
         <div id="statusLog"></div>
     </div>
 
-    <div class="error" id="errorMsg"></div>
     <div id="results"></div>
 </div>
 
 <script>
 /**
  * ============================================================
- *  PROMPTS & TAXONOMY (v0.2)
+ *  PROMPTS & SCHEMAS (3-STEP PIPELINE)
  * ============================================================
  */
 
-// const SEGMENTATION_PROMPT = `
-// You are an expert clinical conversation analyst. Your ONLY goal is to EXTRACT specific "Shared Decision-Making (SDM) Events" from the transcript.
-
-// CRITICAL INSTRUCTIONS:
-// 1. DO NOT segment the entire transcript. SKIP small talk, history gathering, routine check-ins, and physical exams.
-// 2. IGNORE routine instructions (e.g., "get blood work", "follow up in 2 weeks"). These are NOT shared decisions.
-// 3. ONLY extract regions where a SPECIFIC medical decision is actively being debated and options are explicitly implied (Choice Talk). 
-// 4. TIER 0 DECISIONS: Pay close attention to decisions where doing nothing, watchful waiting, continuing current care without changes, or refusing an intervention are discussed. 
-// 5. SINGLE CONTIGUOUS SEGMENT PER ISSUE: DO NOT create overlapping segments for the same medical condition. 
-// 6. BEWARE OF TANGENTS & INTERLEAVED CONVERSATIONS: Medical conversations often jump around. If a treatment is proposed, and the conversation goes on a tangent (e.g., discussing stress, jobs, or diet), but later returns to the EXACT SAME treatment to discuss its name, side effects, or pharmacy logistics, YOU MUST encompass the entire span (including the tangent) in ONE contiguous segment. Do not stop at the first "okay".
-// 7. SCAN FOR RESOLUTION: A medication decision segment is not truly complete until the specific drug name, side effects, or prescribing logistics (e.g., "sent to the pharmacy") are discussed. Scan ahead in the transcript to ensure you are capturing the true end of the conversation.
-// 8. If no decisions are present, output an empty array:[]
-// `;
-// const CLASSIFICATION_PROMPT_TEMPLATE = `
-// You are analyzing a specific segment of a clinical transcript for Shared Decision-Making (SDM).
-
-// CRITICAL INSTRUCTIONS TO PREVENT HALLUCINATIONS & ENSURE ACCURACY:
-// - DO NOT default to generic options like "continue current medication" or "switch to new medication" unless the text EXPLICITLY discusses medications. If they are discussing physical therapy, imaging, surgery, or lifestyle changes, state those exact options.
-// - TIER 0 OPTIONS: You MUST extract "status quo" options if they are discussed. "Watchful waiting", "do nothing", "continue current care", and "not escalating treatment" are highly important options to capture.
-// - EXACT TURN LINKING: The transcript text contains turn markers like [TURN 45]. When classifying a behavior on that line, you MUST extract the exact integer (e.g., 45) for the turn_index. Do not guess line numbers.
-// - ACROSS TANGENTS: Behaviors related to a single option may be scattered. For example, "Options Implied" might happen at Turn 309, but "Explaining Risks/Side effects" might not happen until Turn 379. Link them to the same Option ID.
-// **TAXONOMY DEFINITIONS:**
-
-// I. CHOICE TALK
-// 1. **Options Implied**: Clinician communicates >1 path exists.
-//     - *Positive:* "We could start meds or wait."
-//     - *Negative:* "You need to take this." (No choice offered).
-
-// II. OPTION TALK
-// 2. **Support for Deliberation**: Clinician reassures patient they will help them think through options/deliberate.
-// 3. **Explaining Benefits**: Clinician describes advantages/therapeutic effects of a SPECIFIC option.
-// 4. **Explaining Risks**: Clinician describes harms/complications of a SPECIFIC option.
-// 5. **Explaining Burdens/Practicalities**: Logistics, costs, monitoring of a SPECIFIC option.
-// 6. **Values Exploration**: Asking what matters to patient regarding this decision.
-// 7. **Patient Values Expressed**: Patient articulates fears, goals, preferences.
-// 8. **Questions Invited**: Clinician invites questions.
-// 9. **Patient Questions Asked**: Patient asks clarifying/decisional questions.
-
-// III. DECISION TALK
-// 10. **Preferences Elicited**: Clinician asks for patient preference.
-// 11. **Preference Integration**: Clinician explicitly links the proposed plan to the patient's previously stated values, goals, or preferences (e.g., "Since you want to avoid surgery, let's try physical therapy", "Because you are worried about side effects, we will stay at the current dose").
-// 12. **Decision Stated**: A clear decision/plan is stated.
-// 13. **Decision Deferred with Plan**: Proposing a delay with a structured follow-up.
-
-// **TASK:**
-// 1. Identify the **Specific Options** actually discussed in this specific segment.
-// 2. Classify relevant sentences/turns using the behaviors above. 
-// 3. **LINK** behaviors to the specific Option ID they describe.
-// 4. **CONFIDENCE SCORE:** Assign a score (0-100).
-// `;
-
-// // # --- SCHEMAS ---
-// const SEGMENTATION_SCHEMA = {
-//   "type": "object",
-//   "properties": {
-//     "segments": {
-//       "type": "array",
-//       "items": {
-//         "type": "object",
-//         "properties": {
-//           "id": { "type": "string" },
-//           "summary": { "type": "string" },
-//           "boundary_rationale": { 
-//             "type": "string",
-//             "description": "Explain exactly where the topic is first introduced, whether there are any tangents, and exactly which turn contains the final logistical conclusion (like side effects or pharmacy instructions) BEFORE choosing the indices."
-//           },
-//           "start_turn_index": { "type": "integer" },
-//           "end_turn_index": { "type": "integer" }
-//         },
-//         "required":["id", "summary", "boundary_rationale", "start_turn_index", "end_turn_index"]
-//       }
-//     }
-//   }
-// };
-
-// const CLASSIFICATION_SCHEMA = {
-//   "type": "object",
-//   "properties": {
-//     "rationale": { "type": "string" },
-//     "options_discussed": {
-//       "type": "array",
-//       "items": {
-//         "type": "object",
-//         "properties": {
-//           "option_id": { "type": "string" },
-//           "label": { "type": "string" }
-//         },
-//         "required":["option_id", "label"]
-//       }
-//     },
-//     "classified_turns": {
-//       "type": "array",
-//       "items": {
-//         "type": "object",
-//         "properties": {
-//           "turn_index": { "type": "integer" },
-//           "behaviors": {
-//             "type": "array",
-//             "items": {
-//               "type": "object",
-//               "properties": {
-//                 "behavior_name": {
-//                   "type": "string",
-//                   "enum":[
-//                     "Options Implied", "Support for Deliberation", "Explaining Benefits",
-//                     "Explaining Risks", "Explaining Burdens/Practicalities",
-//                     "Values Exploration", "Patient Values Expressed",
-//                     "Questions Invited", "Patient Questions Asked",
-//                     "Preferences Elicited", "Preference Integration",
-//                     "Decision Stated", "Decision Deferred with Plan"
-//                   ]
-//                 },
-//                 "related_option_id": { "type": "string", "nullable": true },
-//                 "confidence_score": {
-//                    "type": "integer",
-//                    "minimum": 0,
-//                    "maximum": 100
-//                 }
-//               },
-//               "required":["behavior_name", "confidence_score"]
-//             }
-//           }
-//         },
-//         "required":["turn_index", "behaviors"]
-//       }
-//     }
-//   }
-// };
-
+// STEP 1: BROAD SEGMENTATION
 const BROAD_SEGMENTATION_PROMPT = `
 You are an expert clinical conversation analyst. Your ONLY goal is to EXTRACT the broad conversational boundaries of "Shared Decision-Making (SDM) Events" and clinical decisions from the transcript.
 
@@ -551,13 +165,9 @@ const BROAD_SEGMENTATION_SCHEMA = {
           "summary": { "type": "string" },
           "decision_type": { 
              "type": "string", 
-             "enum": ["Clinical", "Administrative/Logistical"],
-             "description": "Flag whether this is purely clinical or a clinically-relevant administrative choice."
+             "enum": ["Clinical", "Administrative/Logistical"]
           },
-          "boundary_rationale": { 
-            "type": "string",
-            "description": "Explain exactly where the topic context is first introduced and exactly where the final logistical conclusion happens."
-          },
+          "boundary_rationale": { "type": "string" },
           "broad_start_turn_index": { "type": "integer" },
           "broad_end_turn_index": { "type": "integer" }
         },
@@ -567,6 +177,7 @@ const BROAD_SEGMENTATION_SCHEMA = {
   }
 };
 
+// STEP 2: RELEVANCE FILTERING
 const RELEVANCE_FILTERING_PROMPT = `
 You are an expert clinical data parser. You will be provided with a specific "Decision Topic" and a chunk of a clinical transcript where this topic is discussed.
 
@@ -586,13 +197,13 @@ const RELEVANCE_FILTERING_SCHEMA = {
     "decision_id": { "type": "string" },
     "relevant_turn_indices": {
       "type": "array",
-      "items": { "type": "integer" },
-      "description": "An array of exact turn indices that pertain to the target decision topic, omitting unrelated tangents."
+      "items": { "type": "integer" }
     }
   },
   "required": ["decision_id", "relevant_turn_indices"]
 };
 
+// STEP 3: CLASSIFICATION
 const CLASSIFICATION_PROMPT_TEMPLATE = `
 You are analyzing a filtered, highly-relevant segment of a clinical transcript for Shared Decision-Making (SDM). You will only see the lines relevant to ONE specific decision.
 
@@ -604,24 +215,7 @@ CRITICAL INSTRUCTIONS TO PREVENT HALLUCINATIONS & ENSURE ACCURACY:
 5. ACROSS TANGENTS: Because you are reading a filtered transcript, you may notice jumps in the turn numbers. This is intentional. Link scattered behaviors (e.g., "Options Implied" at Turn 132, "Explaining Risks" at Turn 216) to the same Option ID.
 
 **TAXONOMY DEFINITIONS:**
-I. CHOICE TALK
-1. **Options Implied**: Clinician communicates >1 path exists.
-2. **Support for Deliberation**: Clinician reassures patient they will help them think through options/deliberate.
-
-II. OPTION TALK
-3. **Explaining Benefits**: Clinician describes advantages/therapeutic effects of a SPECIFIC option.
-4. **Explaining Risks**: Clinician describes harms/complications of a SPECIFIC option.
-5. **Explaining Burdens/Practicalities**: Logistics, costs, monitoring of a SPECIFIC option.
-6. **Values Exploration**: Asking what matters to patient regarding this decision.
-7. **Patient Values Expressed**: Patient articulates fears, goals, preferences.
-8. **Questions Invited**: Clinician invites questions.
-9. **Patient Questions Asked**: Patient asks clarifying/decisional questions.
-
-III. DECISION TALK
-10. **Preferences Elicited**: Clinician asks for patient preference.
-11. **Preference Integration**: Clinician explicitly links the proposed plan to the patient's previously stated values, goals, or preferences.
-12. **Decision Stated**: A clear decision/plan is stated.
-13. **Decision Deferred with Plan**: Proposing a delay with a structured follow-up.
+1. Options Implied, 2. Support for Deliberation, 3. Explaining Benefits, 4. Explaining Risks, 5. Explaining Burdens/Practicalities, 6. Values Exploration, 7. Patient Values Expressed, 8. Questions Invited, 9. Patient Questions Asked, 10. Preferences Elicited, 11. Preference Integration, 12. Decision Stated, 13. Decision Deferred with Plan.
 
 **TASK:**
 1. Identify the **Specific Options** actually discussed (using active phrasing).
@@ -640,10 +234,7 @@ const CLASSIFICATION_SCHEMA = {
         "type": "object",
         "properties": {
           "option_id": { "type": "string" },
-          "label": { 
-            "type": "string",
-            "description": "Use active phrasing: e.g., 'Continue Flomax', 'Add Proscar', 'Do nothing/Watchful waiting'"
-          }
+          "label": { "type": "string" }
         },
         "required":["option_id", "label"]
       }
@@ -683,67 +274,45 @@ const CLASSIFICATION_SCHEMA = {
   }
 };
 
-
 /**
  * ============================================================
- *  LOGIC
+ *  LOGIC & PIPELINE RUNNER
  * ============================================================
  */
 
+// Distinct palette for highlighting overlapping decisions clearly
+const REGION_COLORS = [
+    { bg: '#e8f4f8', border: '#3498db', tag: '#2980b9' }, // Blue
+    { bg: '#f9f0e6', border: '#e67e22', tag: '#d35400' }, // Orange
+    { bg: '#eef8e8', border: '#2ecc71', tag: '#27ae60' }, // Green
+    { bg: '#f4e8f8', border: '#9b59b6', tag: '#8e44ad' }, // Purple
+    { bg: '#fdf0f0', border: '#e74c3c', tag: '#c0392b' }, // Red
+    { bg: '#fcf8e3', border: '#f1c40f', tag: '#f39c12' }  // Yellow
+];
+
 function logStatus(msg) {
     const log = document.getElementById('statusLog');
-    const div = document.createElement('div');
-    div.className = 'log-entry';
-    div.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
-    log.appendChild(div);
+    log.innerHTML += `<div>[${new Date().toLocaleTimeString()}] ${msg}</div>`;
     log.scrollTop = log.scrollHeight;
-}
-
-function getColor(str) {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
-    const c = (hash & 0x00FFFFFF).toString(16).toUpperCase();
-    const hex = "00000".substring(0, 6 - c.length) + c;
-    
-    const r = parseInt(hex.substr(0, 2), 16);
-    const g = parseInt(hex.substr(2, 2), 16);
-    const b = parseInt(hex.substr(4, 2), 16);
-    
-    return `rgba(${r + (255-r)/2}, ${g + (255-g)/2}, ${b + (255-b)/2}, 1)`;
 }
 
 function parseTranscriptToTurns(rawText) {
     const lines = rawText.split('\n');
     const turns = [];
     let currentTurn = null;
-
     const speakerRegex = /^(DOCTOR|PATIENT|CLINICIAN|PROVIDER|MOM|DAD|FAMILY)\b/i;
 
     lines.forEach((line) => {
         const clean = line.trim();
         if (!clean) return;
-
-        let isStart = false;
         if (speakerRegex.test(clean) && clean.length < 50) { 
-            isStart = true;
-        }
-
-        if (isStart) {
             if (currentTurn) turns.push(currentTurn);
-            currentTurn = {
-                index: turns.length,
-                speaker_line: clean,
-                text_lines: []
-            };
+            currentTurn = { index: turns.length, speaker_line: clean, text_lines: [] };
         } else {
             if (currentTurn) {
                 currentTurn.text_lines.push(line);
             } else {
-                currentTurn = {
-                    index: 0,
-                    speaker_line: "METADATA",
-                    text_lines: [line]
-                };
+                currentTurn = { index: 0, speaker_line: "METADATA", text_lines: [line] };
             }
         }
     });
@@ -751,29 +320,7 @@ function parseTranscriptToTurns(rawText) {
     return turns;
 }
 
-function getTranscriptSegmentText(turns, startIdx, endIdx) {
-    let output = "";
-    for (let i = startIdx; i <= endIdx; i++) {
-        if (turns[i]) {
-            output += `[TURN ${turns[i].index}] ${turns[i].speaker_line}\n${turns[i].text_lines.join('\n')}\n\n`;
-        }
-    }
-    return output;
-}
-
-function cleanJson(text) {
-    return text.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/, '').trim();
-}
-
-/**
- * ============================================================
- *  RULE IMPLEMENTATION LOGIC
- * ============================================================
- */
 function applyRuleLogic(region, allTurns) {
-    // 1. Define Speaker Constraints (Normalized)
-    // Clinician group: DOCTOR, CLINICIAN, PROVIDER
-    // Patient group: PATIENT, MOM, DAD, FAMILY
     const getSpeakerType = (speakerName) => {
         const s = speakerName.toUpperCase();
         if (s.includes("DOC") || s.includes("CLIN") || s.includes("PROV")) return "CLINICIAN";
@@ -798,54 +345,33 @@ function applyRuleLogic(region, allTurns) {
 
     if (!region.classified_turns) return;
 
-    // 2. Find Boundaries for Temporal Rule
-    // "Any behaviour that happens before 'Options Implied' or after 'Decision Deferred'/'Decision Stated' should be struck"
     let firstOptionsIndex = Infinity;
     let lastDecisionIndex = -1;
 
     region.classified_turns.forEach(ct => {
         ct.behaviors.forEach(b => {
-            if (b.behavior_name === "Options Implied") {
-                // Find minimum index for the start
-                if (ct.turn_index < firstOptionsIndex) firstOptionsIndex = ct.turn_index;
-            }
-            if (b.behavior_name === "Decision Stated" || b.behavior_name === "Decision Deferred with Plan") {
-                // Find maximum index for the end
-                if (ct.turn_index > lastDecisionIndex) lastDecisionIndex = ct.turn_index;
-            }
+            if (b.behavior_name === "Options Implied" && ct.turn_index < firstOptionsIndex) firstOptionsIndex = ct.turn_index;
+            if ((b.behavior_name === "Decision Stated" || b.behavior_name === "Decision Deferred with Plan") && ct.turn_index > lastDecisionIndex) lastDecisionIndex = ct.turn_index;
         });
     });
     
-    // If no decision made, we don't strike post-behaviors (effectively region end).
     if (lastDecisionIndex === -1) lastDecisionIndex = Infinity;
     
-    // 3. Apply Checks
     region.classified_turns.forEach(ct => {
         const turnData = allTurns[ct.turn_index];
+        if (!turnData) return;
         const currentSpeakerType = getSpeakerType(turnData.speaker_line);
 
         ct.behaviors.forEach(b => {
             b.isInvalid = false;
             b.invalidReasons = [];
 
-            // Temporal Check: Pre-Options
-            // (Note: If this IS the "Options Implied" turn, and it matches firstOptionsIndex, it shouldn't be struck)
-            if (ct.turn_index < firstOptionsIndex) {
-                b.isInvalid = true;
-                b.invalidReasons.push("Pre-Options");
-            }
+            if (ct.turn_index < firstOptionsIndex) { b.isInvalid = true; b.invalidReasons.push("Pre-Options"); }
+            if (ct.turn_index > lastDecisionIndex) { b.isInvalid = true; b.invalidReasons.push("Post-Decision"); }
 
-            // Temporal Check: Post-Decision
-            if (ct.turn_index > lastDecisionIndex) {
-                b.isInvalid = true;
-                b.invalidReasons.push("Post-Decision");
-            }
-
-            // Speaker Check
             const allowed = allowedSpeakers[b.behavior_name];
             if (allowed && !allowed.includes(currentSpeakerType)) {
-                b.isInvalid = true;
-                b.invalidReasons.push(`Wrong Speaker (${currentSpeakerType})`);
+                b.isInvalid = true; b.invalidReasons.push(`Wrong Speaker (${currentSpeakerType})`);
             }
         });
     });
@@ -857,17 +383,12 @@ async function runAnalysis() {
     const loader = document.getElementById('loader');
     const results = document.getElementById('results');
     const errBox = document.getElementById('errorMsg');
-    const logBox = document.getElementById('statusLog');
-
-    errBox.innerText = "";
-    results.innerHTML = "";
-    logBox.innerHTML = "";
     
+    errBox.innerText = ""; results.innerHTML = ""; document.getElementById('statusLog').innerHTML = "";
     if (!apiKey) { errBox.innerText = "API Key required"; return; }
     if (!fileInput.files.length) { errBox.innerText = "File required"; return; }
 
     loader.style.display = "block";
-
     const file = fileInput.files[0];
     const reader = new FileReader();
 
@@ -875,51 +396,65 @@ async function runAnalysis() {
         try {
             const rawText = e.target.result;
             const turns = parseTranscriptToTurns(rawText);
-            const fullTranscriptText = getTranscriptSegmentText(turns, 0, turns.length - 1);
+            const fullTranscriptText = turns.map(t => `[TURN ${t.index}] ${t.speaker_line}\n${t.text_lines.join('\n')}\n`).join('\n');
 
-            // 1. SEGMENTATION CALL
-            logStatus("Step 1/2: Identifying Decision Regions...");
-            const segmentationData = await callGemini(apiKey, SEGMENTATION_PROMPT, SEGMENTATION_SCHEMA, fullTranscriptText);
+            // --- STEP 1: BROAD SEGMENTATION ---
+            logStatus("Step 1/3: Running Broad Segmentation...");
+            const broadData = await callGemini(apiKey, BROAD_SEGMENTATION_PROMPT, BROAD_SEGMENTATION_SCHEMA, fullTranscriptText);
+            const decisions = broadData.decisions || [];
             
-            const regions = segmentationData.segments || [];
-            logStatus(`Found ${regions.length} potential decision regions.`);
-
-            if (regions.length === 0) {
-                logStatus("No decisions found. Stopping.");
+            if (decisions.length === 0) {
+                logStatus("No decisions found. Pipeline Complete.");
                 loader.style.display = "none";
                 return;
             }
 
-            // 2. CLASSIFICATION CALLS
             const finalRegions = [];
 
-            for (let i = 0; i < regions.length; i++) {
-                const reg = regions[i];
-                logStatus(`Step 2/2: Analyzing Region ${i+1}/${regions.length} ("${reg.summary}")...`);
+            // --- PROCESS EACH DECISION ---
+            for (let i = 0; i < decisions.length; i++) {
+                const reg = decisions[i];
+                logStatus(`Processing Decision ${i+1}/${decisions.length}: "${reg.summary}"`);
                 
-                const segmentText = getTranscriptSegmentText(turns, reg.start_turn_index, reg.end_turn_index);
+                // Assign a color to this region
+                reg.colorTheme = REGION_COLORS[i % REGION_COLORS.length];
+
+                // Create a chunk of text bounded by the broad indices
+                let chunkText = "";
+                for (let j = reg.broad_start_turn_index; j <= reg.broad_end_turn_index; j++) {
+                    if (turns[j]) chunkText += `[TURN ${j}] ${turns[j].speaker_line}\n${turns[j].text_lines.join('\n')}\n\n`;
+                }
+
+                // --- STEP 2: RELEVANCE FILTERING ---
+                logStatus(`Step 2/3 (Region ${i+1}): Extracting relevant non-overlapping lines...`);
+                const filterPromptStr = `Topic: ${reg.summary}\n\nTranscript Chunk:\n${chunkText}`;
+                const filterData = await callGemini(apiKey, RELEVANCE_FILTERING_PROMPT, RELEVANCE_FILTERING_SCHEMA, filterPromptStr);
                 
-                const analysisData = await callGemini(apiKey, CLASSIFICATION_PROMPT_TEMPLATE, CLASSIFICATION_SCHEMA, segmentText);
+                const validIndices = (filterData.relevant_turn_indices || []).sort((a,b) => a-b);
+                reg.relevant_turn_indices = validIndices;
 
-                const regionObj = {
-                    ...reg,
-                    ...analysisData
-                };
+                let filteredTranscriptText = "";
+                validIndices.forEach(idx => {
+                    if (turns[idx]) filteredTranscriptText += `[TURN ${idx}] ${turns[idx].speaker_line}\n${turns[idx].text_lines.join('\n')}\n\n`;
+                });
 
-                // --- NEW LAYER: Apply Rules Here ---
-                logStatus(`Applying validation rules to Region ${i+1}...`);
-                applyRuleLogic(regionObj, turns);
-                // -----------------------------------
+                // --- STEP 3: CLASSIFICATION ---
+                logStatus(`Step 3/3 (Region ${i+1}): Running Behavior Classification...`);
+                const classData = await callGemini(apiKey, CLASSIFICATION_PROMPT_TEMPLATE, CLASSIFICATION_SCHEMA, filteredTranscriptText);
 
-                finalRegions.push(regionObj);
+                const finalReg = { ...reg, ...classData };
+                
+                logStatus(`Validating Rule Constraints...`);
+                applyRuleLogic(finalReg, turns);
+                finalRegions.push(finalReg);
             }
 
-            logStatus("Analysis Complete. Rendering...");
-            renderHierarchicalView({ regions: finalRegions }, turns);
+            logStatus("Analysis Complete. Rendering decoupled UI...");
+            renderUI(finalRegions, turns);
 
         } catch (error) {
             console.error(error);
-            errBox.innerText = "Error: " + error.message + "\nCheck console for details.";
+            errBox.innerText = "Error: " + error.message;
         } finally {
             loader.style.display = "none";
         }
@@ -928,470 +463,137 @@ async function runAnalysis() {
 }
 
 async function callGemini(key, systemPrompt, schema, userContent) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent?key=${key}`;;
-    
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent?key=${key}`;
     const payload = {
-        system_instruction: {
-            parts: [{ text: "You are a clinical coding expert. Provide only factual analysis without meta-commentary or reasoning steps." }]
-        },
-        contents: [{ parts: [{ text: `${systemPrompt}\n\nTRANSCRIPT CONTEXT:\n${userContent}` }] }],
+        system_instruction: { parts: [{ text: "You are a clinical coding expert." }] },
+        contents: [{ parts: [{ text: `${systemPrompt}\n\n${userContent}` }] }],
         generationConfig: { 
             response_mime_type: "application/json", 
             response_schema: schema,
-            temperature: 0,
-            top_k: 1,
-            top_p: 1.0,
-            seed: 42
+            temperature: 0
         }
     };
 
-    const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-    });
-
-    if (!res.ok) {
-        const errorText = await res.text();
-        console.error("Gemini API Error:", errorText);
-        throw new Error(`Gemini API error: ${errorText}`);
-    }
+    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    if (!res.ok) throw new Error(await res.text());
     
     const data = await res.json();
-    console.log("Raw Gemini response:", data);
-    
-    if (!data.candidates || data.candidates.length === 0) {
-        console.error("No candidates in response:", data);
-        throw new Error("No response candidates from Gemini");
-    }
-    
-    const candidate = data.candidates[0];
-    
-    if (candidate.finishReason === "SAFETY" || candidate.finishReason === "RECITATION") {
-        throw new Error(`Response blocked: ${candidate.finishReason}`);
-    }
-    
-    let rawString;
-    if (candidate.content && candidate.content.parts && candidate.content.parts[0]) {
-        rawString = candidate.content.parts[0].text;
-    } else {
-        console.error("Unexpected response structure:", candidate);
-        throw new Error("Could not extract text from Gemini response");
-    }
-    
-    if (!rawString) {
-        throw new Error("Empty response from Gemini");
-    }
-    
-    rawString = cleanJson(rawString);
-    
-    try {
-        const parsed = JSON.parse(rawString);
-        return parsed;
-    } catch (parseError) {
-        console.error("JSON Parse Error:", parseError);
-        console.error("Failed to parse:", rawString);
-        throw new Error(`Failed to parse JSON: ${parseError.message}. Raw: ${rawString.substring(0, 200)}...`);
-    }
+    const rawString = data.candidates[0].content.parts[0].text.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
+    return JSON.parse(rawString);
 }
 
-// ============================================================
-//  RENDERING (v0.3 Executive Dashboard)
-// ============================================================
-function renderHierarchicalView(data, allTurns) {
-    const resultsDiv = document.getElementById('results');
-    let html = "";
-
-    const regions = data.regions || [];
-    regions.sort((a,b) => a.start_turn_index - b.start_turn_index);
-
-    // 1. RENDER DASHBOARD (New High Level UI)
-    html += renderDashboard(regions);
-
-    // 2. RENDER TRANSCRIPT / DETAILS
-    let cursor = 0;
-    html += `<h2>Detailed Transcript Analysis</h2>`;
-
-    regions.forEach(region => {
-        const start = region.start_turn_index;
-        const end = region.end_turn_index;
-
-        if (start > cursor) {
-            html += `<div style="opacity:0.6; padding-left:300px; font-size:0.9em;">`; 
-            for (let i = cursor; i < start; i++) {
-                if (allTurns[i]) html += renderTurn(allTurns[i], null);
-            }
-            html += `</div>`;
-        }
-
-        html += renderRegionBlock(region, allTurns);
-        cursor = end + 1;
-    });
-
-    if (cursor < allTurns.length) {
-        html += `<div style="opacity:0.6; padding-left:300px; font-size:0.9em;">`;
-        for (let i = cursor; i < allTurns.length; i++) { 
-            if (allTurns[i]) html += renderTurn(allTurns[i], null);
-        }
-        html += `</div>`;
-    }
-
-    html += `<textarea class="raw-json">${JSON.stringify(data, null, 2)}</textarea>`;
-    resultsDiv.innerHTML = html;
-
-    setTimeout(updateAllSVGs, 500);
-}
-
-function renderDashboard(regions) {
-    let cardsHtml = "";
-
+/**
+ * ============================================================
+ *  UI RENDERING
+ * ============================================================
+ */
+function renderUI(regions, turns) {
+    const results = document.getElementById('results');
+    
+    let html = `<h2>Executive Summary</h2>`;
+    html += `<div class="dashboard-grid">`;
     regions.forEach(reg => {
-        // --- Calculate Stats for this Region ---
-        const allBehaviors = [];
+        html += `
+        <div class="decision-card" style="border-top-color: ${reg.colorTheme.border}">
+            <div class="card-header">
+                <h4>${reg.summary}</h4>
+                <span class="badge" style="background: ${reg.colorTheme.bg}; color: ${reg.colorTheme.tag};">${reg.decision_type || 'Clinical'}</span>
+            </div>
+            <div style="font-size:0.85rem; color:#7f8fa6; margin-top:10px;">
+                Turns: [${reg.relevant_turn_indices.join(', ')}]
+            </div>
+        </div>`;
+    });
+    html += `</div>`;
+
+    html += `<h2>Abstracted Decision Maps</h2>`;
+    html += `<div class="decision-map-container">`;
+    regions.forEach(reg => {
+        const optionsHtml = (reg.options_discussed || []).map(o => `<li><strong>${o.label}</strong> (ID: ${o.option_id})</li>`).join('');
+        
+        let behaviorsHtml = '';
         if (reg.classified_turns) {
             reg.classified_turns.forEach(ct => {
                 ct.behaviors.forEach(b => {
-                    if (!b.isInvalid) allBehaviors.push(b.behavior_name);
+                    const invalidClass = b.isInvalid ? 'invalid' : '';
+                    const title = b.isInvalid ? `Invalid: ${b.invalidReasons.join(', ')}` : `Score: ${b.confidence_score}%`;
+                    behaviorsHtml += `<div class="behavior-pill ${invalidClass}" title="${title}">
+                        <span style="font-weight:bold; color: ${reg.colorTheme.tag}">T${ct.turn_index}</span> ${b.behavior_name}
+                    </div>`;
                 });
             });
         }
 
-        const hasChoice = allBehaviors.includes("Options Implied");
-        // Option Talk: Any of benefits, risks, values
-        const hasOptionTalk = allBehaviors.some(b => 
-            ["Explaining Benefits", "Explaining Risks", "Values Exploration", "Patient Values Expressed"].includes(b)
-        );
-        // Decision: Stated or Deferred
-        const outcomeStated = allBehaviors.includes("Decision Stated");
-        const outcomeDeferred = allBehaviors.includes("Decision Deferred with Plan");
-        const hasDecision = outcomeStated || outcomeDeferred;
-
-        // Attributes
-        const hasRisks = allBehaviors.includes("Explaining Risks");
-        const hasBenefits = allBehaviors.includes("Explaining Benefits");
-        const hasValues = allBehaviors.includes("Values Exploration") || allBehaviors.includes("Patient Values Expressed");
-
-        // Status Logic
-        let statusHtml = '<span class="status-pill status-ongoing">Ongoing</span>';
-        if (outcomeStated) statusHtml = '<span class="status-pill status-completed">Decision Made</span>';
-        else if (outcomeDeferred) statusHtml = '<span class="status-pill status-deferred">Deferred</span>';
-
-        // Options List
-        const optionsList = (reg.options_discussed || [])
-            .map(o => `• ${o.label}`)
-            .join('<br>');
-
-        cardsHtml += `
-        <div class="decision-card" onclick="document.getElementById('details-${reg.id}').open = true; document.getElementById('details-${reg.id}').scrollIntoView({behavior:'smooth'});">
-            <div>
-                <div class="card-header">
-                    <div>
-                        <h4 class="card-title">${reg.summary}</h4>
-                        <span class="card-id">ID: ${reg.id}</span>
-                    </div>
-                    ${statusHtml}
-                </div>
-
-                <div class="sdm-steps">
-                    <div class="step-wrapper">
-                        <div class="step-dot ${hasChoice ? 'active' : ''}"></div>
-                        <div class="step-label">Options</div>
-                    </div>
-                    <div class="step-wrapper">
-                        <div class="step-dot ${hasOptionTalk ? 'active' : ''}"></div>
-                        <div class="step-label">Options</div>
-                    </div>
-                    <div class="step-wrapper">
-                        <div class="step-dot ${hasDecision ? 'active' : ''}"></div>
-                        <div class="step-label">Decision</div>
-                    </div>
-                </div>
-
-                <div class="options-list">
-                    <strong>Options Considered:</strong>
-                    ${optionsList || '<i>None explicitly tagged</i>'}
-                </div>
+        html += `
+        <div class="decision-map-box" style="border-left: 6px solid ${reg.colorTheme.border}">
+            <h3 style="margin-top:0;">${reg.summary}</h3>
+            <p style="font-size:0.9rem; color:#555;">${reg.rationale || reg.boundary_rationale || ''}</p>
+            <div class="map-options">
+                <strong>Options Considered:</strong>
+                <ul style="margin: 5px 0 0 0; padding-left: 20px;">${optionsHtml || '<li>None explicitly mapped</li>'}</ul>
             </div>
-
-            <div class="attribute-tags">
-                <span class="attr-badge ${hasRisks?'present':''}">Risks</span>
-                <span class="attr-badge ${hasBenefits?'present':''}">Benefits</span>
-                <span class="attr-badge ${hasValues?'present':''}">Values</span>
+            <strong>Mapped Behaviors:</strong>
+            <div class="map-behaviors" style="margin-top:10px;">
+                ${behaviorsHtml || '<span style="color:#999; font-size:0.9rem;">No behaviors detected.</span>'}
             </div>
-        </div>
-        `;
+        </div>`;
     });
+    html += `</div>`;
 
-    return `
-    <div class="dashboard-container">
-        <div class="dashboard-header">
-            <h2 style="margin:0;">Executive Summary</h2>
-            <p style="margin:5px 0 0; color:#636e72;">Found <strong>${regions.length}</strong> decision event(s) in this transcript.</p>
-        </div>
-        <div class="dashboard-grid">
-            ${cardsHtml}
-        </div>
-    </div>
-    `;
-}
+    // --- GLOBAL TRANSCRIPT ---
+    html += `<h2>Global Transcript</h2>`;
+    html += `<div class="global-transcript">`;
 
-function renderRegionBlock(region, allTurns) {
-    const turnBehaviorMap = {};
-    const regionStats = { "General Process": [] }; 
-    
-    if (region.options_discussed) {
-        region.options_discussed.forEach(opt => {
-            regionStats[opt.option_id] = { label: opt.label, items: [] };
-        });
-    }
-
-    if (region.classified_turns) {
-        region.classified_turns.forEach(ct => {
-            const tIndex = ct.turn_index;
-            if (!turnBehaviorMap[tIndex]) turnBehaviorMap[tIndex] = [];
-
-            ct.behaviors.forEach(b => {
-                const color = getColor(b.behavior_name);
-                const uniqueId = Math.random().toString(36).substr(2, 9);
-                
-                const behaviorObj = {
-                    name: b.behavior_name,
-                    optId: b.related_option_id,
-                    color: color,
-                    uid: uniqueId,
-                    score: b.confidence_score,
-                    isInvalid: b.isInvalid,
-                    reasons: b.invalidReasons
-                };
-
-                turnBehaviorMap[tIndex].push(behaviorObj);
-
-                const targetOpt = b.related_option_id && regionStats[b.related_option_id] 
-                                  ? b.related_option_id 
-                                  : "General Process";
-                
-                const itemData = { 
-                     name: b.behavior_name, 
-                     color: color, 
-                     uid: uniqueId, 
-                     score: b.confidence_score,
-                     isInvalid: b.isInvalid,
-                     reasons: b.invalidReasons
-                };
-
-                if (targetOpt === "General Process") {
-                    regionStats["General Process"].push(itemData);
-                } else {
-                    regionStats[targetOpt].items.push(itemData);
+    turns.forEach((turn) => {
+        // Find which regions this turn belongs to
+        const activeRegions = regions.filter(r => r.relevant_turn_indices.includes(turn.index));
+        
+        // Find behaviors mapped specifically to this turn
+        const turnTags = [];
+        activeRegions.forEach(r => {
+            if(r.classified_turns) {
+                const mapped = r.classified_turns.find(ct => ct.turn_index === turn.index);
+                if (mapped) {
+                    mapped.behaviors.forEach(b => {
+                        turnTags.push({ text: b.behavior_name, color: r.colorTheme.tag, invalid: b.isInvalid });
+                    });
                 }
-            });
-        });
-    }
-
-    // Build Sidebar
-    let sidebarHtml = "";
-    
-    // General
-    if (regionStats["General Process"].length > 0) {
-        sidebarHtml += `<div class="sidebar-group">
-            <div class="sidebar-group-title">General / Process</div>`;
-        regionStats["General Process"].forEach(item => sidebarHtml += createSidebarBadge(item, region.id));
-        sidebarHtml += `</div>`;
-    }
-
-    // Options
-    if (region.options_discussed) {
-        region.options_discussed.forEach(opt => {
-            const data = regionStats[opt.option_id];
-            if (data && data.items.length > 0) {
-                sidebarHtml += `<div class="sidebar-group">
-                    <div class="sidebar-group-title" title="${data.label}">${data.label}</div>`;
-                data.items.forEach(item => sidebarHtml += createSidebarBadge(item, region.id));
-                sidebarHtml += `</div>`;
             }
         });
-    }
 
-    let linesHtml = "";
-    const safeEnd = Math.min(region.end_turn_index, allTurns.length - 1);
-    const displayTitle = region.summary || region.decision_summary || "Decision Event";
-
-    for (let i = region.start_turn_index; i <= safeEnd; i++) {
-        linesHtml += renderTurn(allTurns[i], turnBehaviorMap[i], region.id);
-    }
-
-    return `
-    <details id="details-${region.id}" ontoggle="handleToggle(this)">
-        <summary>
-            <div class="summary-header">
-                <h3>${displayTitle}</h3>
-                <div>
-                    <span class="meta-badge">ID: ${region.id}</span>
-                    ${(region.options_discussed || []).map(o => `<span class="meta-badge" style="background:#fff; border:1px solid #ccc;">Opt: ${o.label}</span>`).join('')}
-                </div>
-                <p>${marked.parse(region.rationale || '')}</p>
-            </div>
-        </summary>
-        <div class="region-flex-wrapper" id="region-${region.id}">
-            <svg class="connections-svg" id="svg-${region.id}"></svg>
-            
-            <div class="hierarchical-sidebar">
-                <div style="position:sticky; top:20px;">
-                    ${sidebarHtml || '<div style="color:#999; font-style:italic; padding:10px;">No specific behaviors mapped.</div>'}
-                </div>
-            </div>
-
-            <div class="transcript-flow">
-                ${linesHtml}
-            </div>
-        </div>
-    </details>
-    `;
-}
-
-function createSidebarBadge(item, regionId) {
-    // Add class if invalid
-    const invalidClass = item.isInvalid ? "invalid-behavior" : "";
-    const titleText = item.isInvalid ? `Invalid: ${item.reasons.join(", ")}` : "";
-
-    return `
-    <div class="agg-badge source-${regionId} ${invalidClass}"  
-         data-uid="${item.uid}" 
-         data-invalid="${item.isInvalid}" 
-         title="${titleText}"
-         style="border-left-color: ${item.color};"
-         onclick="scrollToBehavior('${regionId}', '${item.uid}')">
-        <span>${item.name}</span>
-        <span style="font-size:0.75rem; opacity:0.6; margin-left:5px;">${item.score || 0}%</span>
-    </div>`;
-}
-
-function scrollToBehavior(regionId, uid) {
-    const regionContainer = document.getElementById(`region-${regionId}`);
-    if (!regionContainer) return;
-    const targetTag = regionContainer.querySelector(`.tag[data-uid="${uid}"]`);
-    if (targetTag) {
-        targetTag.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        const turnContainer = targetTag.closest('.turn-container');
-        if (turnContainer) {
-            const originalBg = turnContainer.style.backgroundColor;
-            turnContainer.style.backgroundColor = 'rgba(255, 235, 59, 0.4)'; 
-            setTimeout(() => {
-                turnContainer.style.backgroundColor = originalBg;
-            }, 1500);
+        // Determine background and borders
+        let turnBg = 'transparent';
+        let turnBorder = 'transparent';
+        
+        if (activeRegions.length === 1) {
+            turnBg = activeRegions[0].colorTheme.bg;
+            turnBorder = activeRegions[0].colorTheme.border;
+        } else if (activeRegions.length > 1) {
+            // Overlapping - mix or use a generic highlight
+            turnBg = '#f1f2f6';
+            turnBorder = '#2f3640'; 
         }
-    }
-}
 
-function renderTurn(turnObj, behaviors, regionId) {
-    let tagsHtml = "";
-    let highlightClass = "";
-    let borderStyle = "";
+        const tagsHtml = turnTags.map(t => 
+            `<span class="text-tag" style="background:${t.color}; ${t.invalid ? 'text-decoration:line-through; opacity:0.5;' : ''}">${t.text}</span>`
+        ).join('');
 
-    if (behaviors && behaviors.length > 0) {
-        highlightClass = "highlighted-turn";
-        // Use color of first VALID behavior for border, or just first one if all invalid
-        const validB = behaviors.find(b => !b.isInvalid) || behaviors[0];
-        borderStyle = `border-left: 4px solid ${validB.color};`;
-        
-        behaviors.forEach(b => {
-            const invalidClass = b.isInvalid ? "invalid-behavior" : "";
-            const titleText = b.isInvalid ? `Invalid: ${b.reasons.join(", ")}` : "";
-            
-            tagsHtml += `<div class="tag target-${regionId} ${invalidClass}" 
-                              data-uid="${b.uid}"
-                              title="${titleText}" 
-                              style="background-color: ${b.color};">
-                              ${b.name} 
-                              <span style="font-size:0.75em; opacity:0.6; margin-left:2px;">(${b.score || 0}%)</span>
-                         </div>`;
-        });
-    }
-
-    return `
-    <div class="turn-container ${highlightClass}">
-        <div class="turn-meta">
-            <div class="speaker-label">${turnObj.speaker_line}</div>
-            ${tagsHtml}
-        </div>
-        <div class="text-content" style="${borderStyle}">
-            ${turnObj.text_lines.join('\n')}
-        </div>
-    </div>
-    `;
-}
-
-// SVG DRAWING
-function drawLines(regionId) {
-    const svg = document.getElementById(`svg-${regionId}`);
-    const container = document.getElementById(`region-${regionId}`);
-    if (!svg || !container) return;
-
-    svg.innerHTML = '';
-
-    const width = container.offsetWidth;
-    const height = container.scrollHeight;
-
-    svg.setAttribute('width', width);
-    svg.setAttribute('height', height);
-    
-    const contRect = container.getBoundingClientRect();
-    const sources = container.querySelectorAll(`.source-${regionId}`);
-    
-    sources.forEach(source => {
-        const uid = source.getAttribute('data-uid');
-        const color = source.style.borderLeftColor;
-        // Check if invalidated
-        const isInvalid = source.getAttribute('data-invalid') === "true";
-        
-        const srcRect = source.getBoundingClientRect();
-        const startX = (srcRect.right) - contRect.left;
-        const startY = (srcRect.top + srcRect.height / 2) - contRect.top;
-
-        const targets = container.querySelectorAll(`.target-${regionId}[data-uid="${uid}"]`);
-        
-        targets.forEach(target => {
-            const tgtRect = target.getBoundingClientRect();
-            const endX = (tgtRect.left) - contRect.left;
-            const endY = (tgtRect.top + tgtRect.height / 2) - contRect.top;
-
-            const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-            
-            const cp1X = startX + 40; 
-            const cp1Y = startY; 
-            
-            const cp2X = endX - 40;   
-            const cp2Y = endY;
-
-            const d = `M ${startX} ${startY} C ${cp1X} ${cp1Y}, ${cp2X} ${cp2Y}, ${endX} ${endY}`;
-
-            path.setAttribute("d", d);
-            
-            // Add dotted/faint class if invalid
-            let classNames = "connector-line";
-            if (isInvalid) classNames += " invalid-line";
-            
-            path.setAttribute("class", classNames);
-            path.setAttribute("stroke", color);
-            
-            svg.appendChild(path);
-        });
+        html += `
+        <div class="turn-container" style="background-color: ${turnBg}; border-left-color: ${turnBorder};">
+            <div class="turn-meta">
+                <div>[TURN ${turn.index}]</div>
+                <div style="color:#2f3640;">${turn.speaker_line}</div>
+            </div>
+            <div class="turn-content">
+                ${tagsHtml.length > 0 ? `<div class="turn-tags">${tagsHtml}</div>` : ''}
+                ${turn.text_lines.join('\n')}
+            </div>
+        </div>`;
     });
+
+    html += `</div>`;
+    results.innerHTML = html;
 }
-
-function updateAllSVGs() {
-    document.querySelectorAll('details[open]').forEach(d => {
-        const content = d.querySelector('.region-flex-wrapper');
-        if(content && content.id) {
-            drawLines(content.id.replace('region-', ''));
-        }
-    });
-}
-
-function handleToggle(details) { if(details.open) setTimeout(updateAllSVGs, 50); }
-window.addEventListener('resize', updateAllSVGs);
-window.addEventListener('scroll', updateAllSVGs, true);
-
 </script>
 </body>
 </html>
