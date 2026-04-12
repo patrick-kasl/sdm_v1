@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CCQ SDM Pipeline v0.4 - 3-Step Analyzer</title>
+    <title>CCQ SDM Pipeline v0.5 - Hierarchical Analyzer</title>
     <style>
         :root {
             --primary: #4a69bd;
@@ -42,22 +42,29 @@
         }
         button:hover { background-color: #3c55a5; }
 
-        /* DASHBOARD */
-        .dashboard-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-            gap: 20px;
+        /* DASHBOARD & TREE */
+        .tree-container {
             margin-bottom: 40px;
         }
         .decision-card {
             border: 1px solid #e1e4e8; border-radius: 8px; padding: 20px;
             background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.03);
-            border-top: 5px solid #ccc; /* Will be overwritten by JS color */
+            border-left: 5px solid #ccc; /* Overwritten by JS color */
+            margin-bottom: 15px;
         }
-        .card-header h4 { margin: 0 0 5px 0; font-size: 1.1rem; }
+        .card-header h4 { margin: 0 0 8px 0; font-size: 1.15rem; }
         .badge {
             display: inline-block; padding: 4px 8px; border-radius: 4px;
-            font-size: 0.75rem; font-weight: bold; background: #eee;
+            font-size: 0.75rem; font-weight: bold; background: #eee; margin-right: 5px;
+        }
+        .sdm-badge-yes { background: #27ae60; color: white; }
+        .sdm-badge-no { background: #95a5a6; color: white; }
+        
+        .tree-children {
+            margin-left: 30px;
+            border-left: 2px dashed #bdc3c7;
+            padding-left: 20px;
+            margin-top: 15px;
         }
 
         /* ABSTRACTED DECISION MAPS */
@@ -114,14 +121,14 @@
 <body>
 
 <div class="container">
-    <h1>SDM Analyzer: 3-Step Pipeline</h1>
+    <h1>SDM Analyzer: Hierarchical Pipeline</h1>
     
     <div class="setup-box">
         <label><strong>1. Google Gemini API Key:</strong></label>
         <input type="text" id="apiKey" placeholder="AIzaSy...">
         <label><strong>2. Transcript File (.txt):</strong></label>
         <input type="file" id="fileInput" accept=".txt">
-        <button onclick="runAnalysis()">Run 3-Step Pipeline</button>
+        <button onclick="runAnalysis()">Run Hierarchical Pipeline</button>
         <div class="error" id="errorMsg"></div>
     </div>
 
@@ -135,22 +142,20 @@
 <script>
 /**
  * ============================================================
- *  PROMPTS & SCHEMAS (3-STEP PIPELINE)
+ *  PROMPTS & SCHEMAS
  * ============================================================
  */
 
 // STEP 1: BROAD SEGMENTATION
 const BROAD_SEGMENTATION_PROMPT = `
-You are an expert clinical conversation analyst. Your ONLY goal is to EXTRACT the broad conversational boundaries of "Shared Decision-Making (SDM) Events" and clinical decisions from the transcript.
+You are an expert clinical conversation analyst. Your ONLY goal is to EXTRACT the broad conversational boundaries of clinical decisions, mapping them into a nested tree.
 
 CRITICAL INSTRUCTIONS:
-1. ALLOW OVERLAPPING SEGMENTS: It is completely acceptable and expected for different medical decisions to overlap. If the clinician talks about blood pressure, switches to prostate medication, and goes back to blood pressure, create separate events for each, even if their start and end indices overlap.
-2. ADMINISTRATIVE/LOGISTICAL DECISIONS: Include administrative choices IF they have clinical implications (e.g., choosing a specific specialist location, selecting a dialysis facility, or setting a follow-up interval). Do not ignore them just because they are logistical.
-3. EXCLUDE FALSE POSITIVES: 
-   - Information Gathering: Do NOT flag patient-driven questions where the clinician just answers without offering a clinical path (e.g., Patient: "Should I take a vitamin?" -> Clinician: "No, your labs are fine").
-   - Unilateral Refusals: Do NOT flag immediate patient refusals (e.g., "I don't do vaccines") IF the clinician accepts it without offering counseling or exploring options.
-4. CAST A WIDE NET: For each decision, identify the FIRST time the context/topic is mentioned, and the LAST time a relevant logistical conclusion (e.g., side effects, pharmacy routing) is discussed. It is okay if there is unrelated conversation in between these two points.
-5. If no decisions are present, output an empty array: []
+1. PROBLEM AREA: Group related discussions (e.g., knee joint pain interventions vs. prostate screening) under a shared "problem_area" string.
+2. HIERARCHY & CONTINGENCY: Identify dependent/contingent decisions. If a decision requires the outcome of another decision to proceed (e.g., "MRI Location" depends on "Order MRI", or "Kidney lab orders" depend on "Dosage of ibuprofen chosen"), map the dependent choice's \`parent_decision_id\` to the ID of the primary decision. Use "none" if it is a root-level decision.
+3. ALLOW OVERLAPS: Overlapping turn indices are entirely expected.
+4. EXCLUSIONS: Do NOT flag patient-driven questions where the clinician just answers without offering a clinical path.
+5. ADMINISTRATIVE/LOGISTICAL: Include administrative choices (specialist location, mail vs pharmacy pickup) IF they have clinical/logistical implications. Make them children of the primary decision if applicable.
 `;
 
 const BROAD_SEGMENTATION_SCHEMA = {
@@ -162,16 +167,18 @@ const BROAD_SEGMENTATION_SCHEMA = {
         "type": "object",
         "properties": {
           "id": { "type": "string" },
+          "parent_decision_id": { "type": "string", "description": "ID of parent decision, or 'none' if root" },
+          "problem_area": { "type": "string" },
           "summary": { "type": "string" },
           "decision_type": { 
              "type": "string", 
-             "enum": ["Clinical", "Administrative/Logistical"]
+             "enum": ["Clinical", "Administrative/Logistical", "Contingent/Future"]
           },
           "boundary_rationale": { "type": "string" },
           "broad_start_turn_index": { "type": "integer" },
           "broad_end_turn_index": { "type": "integer" }
         },
-        "required": ["id", "summary", "decision_type", "boundary_rationale", "broad_start_turn_index", "broad_end_turn_index"]
+        "required": ["id", "parent_decision_id", "problem_area", "summary", "decision_type", "boundary_rationale", "broad_start_turn_index", "broad_end_turn_index"]
       }
     }
   }
@@ -180,15 +187,12 @@ const BROAD_SEGMENTATION_SCHEMA = {
 // STEP 2: RELEVANCE FILTERING
 const RELEVANCE_FILTERING_PROMPT = `
 You are an expert clinical data parser. You will be provided with a specific "Decision Topic" and a chunk of a clinical transcript where this topic is discussed.
-
-Medical conversations are highly discontinuous. A doctor and patient might start discussing a medication, take a long tangent to discuss an unrelated issue (like joint pain, small talk, or a different medication), and then return to the original medication to finalize the prescription.
-
 Your ONLY task is to identify the exact turn indices that are RELEVANT to the provided Decision Topic. 
 
 CRITICAL INSTRUCTIONS:
-1. STRIP THE HAYSTACK: Remove all turn indices that correspond to small talk, physical exams, or interleaved tangents about entirely different medical conditions.
-2. KEEP CONTEXT: Keep turns that provide necessary clinical context for the specific decision being made.
-3. OUTPUT: Provide an array of strictly the integer turn numbers that form the cohesive discussion for this specific decision.
+1. STRIP THE HAYSTACK: Remove small talk, physical exams, or interleaved tangents.
+2. KEEP CONTEXT: Keep turns that provide necessary clinical context for the specific decision.
+3. OUTPUT: Provide an array of strictly the integer turn numbers that form the cohesive discussion for this decision.
 `;
 
 const RELEVANCE_FILTERING_SCHEMA = {
@@ -205,36 +209,32 @@ const RELEVANCE_FILTERING_SCHEMA = {
 
 // STEP 3: CLASSIFICATION
 const CLASSIFICATION_PROMPT_TEMPLATE = `
-You are analyzing a filtered, highly-relevant segment of a clinical transcript for Shared Decision-Making (SDM). You will only see the lines relevant to ONE specific decision.
+You are analyzing a filtered segment of a clinical transcript for Shared Decision-Making (SDM). You will only see lines relevant to ONE specific decision.
 
-CRITICAL INSTRUCTIONS TO PREVENT HALLUCINATIONS & ENSURE ACCURACY:
-1. OPTION NAMING MATTERS: Do not just list drug names (e.g., "Proscar"). Use active phrasing indicating the actual choice, such as "Continue current Flomax", "Add Proscar to regimen", "Stop Maalox", or "Switch to new medication".
-2. TIER 0 & STATUS QUO OPTIONS: You MUST extract "status quo" options if they are implied. "Watchful waiting", "do nothing", "continue current care", and "not escalating treatment" are highly important options to capture.
-3. STRONG RECOMMENDATIONS: Even if a clinician gives a strong, singular recommendation (e.g., "I really think we should drop the Maalox"), if an alternative is biologically/logically implied (e.g., "Keep the Maalox"), you should extract both options and identify the behavior as "Options Implied".
-4. EXACT TURN LINKING: When classifying a behavior, you MUST extract the exact integer for the turn_index provided in the text.
-5. ACROSS TANGENTS: Because you are reading a filtered transcript, you may notice jumps in the turn numbers. This is intentional. Link scattered behaviors (e.g., "Options Implied" at Turn 132, "Explaining Risks" at Turn 216) to the same Option ID.
+CRITICAL INSTRUCTIONS:
+1. CONTEMPORANEOUS OPTIONS: "Real" options must be something the clinician can initiate in this encounter (e.g., refill medication, refer, order labs). Do NOT extract future conditionals (e.g., "referral after MRI results") as options for THIS decision.
+2. NON-VIABLE OPTIONS: If an option is presented but worded to imply it is medically impossible or non-viable (e.g., "We can't drain it"), exclude it or label it as non-viable.
+3. STATUS QUO / TIER 0: MUST extract "status quo" (e.g., continue current management, watch & wait) if implied.
+4. SDM DETERMINATION: Assess if this decision node genuinely constitutes Shared Decision-Making. True SDM requires presenting viable/contemporaneous options (even if one is status quo) AND some form of deliberation, eliciting preference, or values integration. Answer via the \`is_sdm_decision\` flag.
+5. EXACT TURN LINKING: Extract the exact integer for the turn_index provided in the text to map the behavioral taxonomy.
 
-**TAXONOMY DEFINITIONS:**
+TAXONOMY DEFINITIONS:
 1. Options Implied, 2. Support for Deliberation, 3. Explaining Benefits, 4. Explaining Risks, 5. Explaining Burdens/Practicalities, 6. Values Exploration, 7. Patient Values Expressed, 8. Questions Invited, 9. Patient Questions Asked, 10. Preferences Elicited, 11. Preference Integration, 12. Decision Stated, 13. Decision Deferred with Plan.
-
-**TASK:**
-1. Identify the **Specific Options** actually discussed (using active phrasing).
-2. Classify relevant sentences/turns using the behaviors above. 
-3. **LINK** behaviors to the specific Option ID they describe.
-4. **CONFIDENCE SCORE:** Assign a score (0-100).
 `;
 
 const CLASSIFICATION_SCHEMA = {
   "type": "object",
   "properties": {
-    "rationale": { "type": "string" },
+    "is_sdm_decision": { "type": "boolean" },
+    "sdm_rationale": { "type": "string" },
     "options_discussed": {
       "type": "array",
       "items": {
         "type": "object",
         "properties": {
           "option_id": { "type": "string" },
-          "label": { "type": "string" }
+          "label": { "type": "string" },
+          "is_contemporaneous": { "type": "boolean" }
         },
         "required":["option_id", "label"]
       }
@@ -280,7 +280,6 @@ const CLASSIFICATION_SCHEMA = {
  * ============================================================
  */
 
-// Distinct palette for highlighting overlapping decisions clearly
 const REGION_COLORS = [
     { bg: '#e8f4f8', border: '#3498db', tag: '#2980b9' }, // Blue
     { bg: '#f9f0e6', border: '#e67e22', tag: '#d35400' }, // Orange
@@ -340,7 +339,7 @@ function applyRuleLogic(region, allTurns) {
         "Preferences Elicited": ["CLINICIAN"],
         "Preference Integration": ["CLINICIAN"],
         "Decision Stated": ["CLINICIAN", "PATIENT"],
-        "Decision Deferred with Plan": ["CLINICIAN"]
+        "Decision Deferred with Plan": ["CLINICIAN", "PATIENT"]
     };
 
     if (!region.classified_turns) return;
@@ -377,6 +376,29 @@ function applyRuleLogic(region, allTurns) {
     });
 }
 
+function buildDecisionTree(regions) {
+    const map = {};
+    const roots = [];
+    
+    // Initialize mapping
+    regions.forEach((r, i) => { 
+        r.children = []; 
+        r.colorTheme = REGION_COLORS[i % REGION_COLORS.length]; // Keep distinct colors for overlaps
+        map[r.id] = r; 
+    });
+    
+    // Map hierarchy
+    regions.forEach(r => {
+        if (r.parent_decision_id && r.parent_decision_id !== 'none' && map[r.parent_decision_id]) {
+            map[r.parent_decision_id].children.push(r);
+        } else {
+            roots.push(r);
+        }
+    });
+
+    return roots;
+}
+
 async function runAnalysis() {
     const fileInput = document.getElementById('fileInput');
     const apiKey = document.getElementById('apiKey').value;
@@ -399,7 +421,7 @@ async function runAnalysis() {
             const fullTranscriptText = turns.map(t => `[TURN ${t.index}] ${t.speaker_line}\n${t.text_lines.join('\n')}\n`).join('\n');
 
             // --- STEP 1: BROAD SEGMENTATION ---
-            logStatus("Step 1/3: Running Broad Segmentation...");
+            logStatus("Step 1/3: Running Broad Segmentation (Identifying Tree)...");
             const broadData = await callGemini(apiKey, BROAD_SEGMENTATION_PROMPT, BROAD_SEGMENTATION_SCHEMA, fullTranscriptText);
             const decisions = broadData.decisions || [];
             
@@ -415,11 +437,7 @@ async function runAnalysis() {
             for (let i = 0; i < decisions.length; i++) {
                 const reg = decisions[i];
                 logStatus(`Processing Decision ${i+1}/${decisions.length}: "${reg.summary}"`);
-                
-                // Assign a color to this region
-                reg.colorTheme = REGION_COLORS[i % REGION_COLORS.length];
 
-                // Create a chunk of text bounded by the broad indices
                 let chunkText = "";
                 for (let j = reg.broad_start_turn_index; j <= reg.broad_end_turn_index; j++) {
                     if (turns[j]) chunkText += `[TURN ${j}] ${turns[j].speaker_line}\n${turns[j].text_lines.join('\n')}\n\n`;
@@ -439,18 +457,18 @@ async function runAnalysis() {
                 });
 
                 // --- STEP 3: CLASSIFICATION ---
-                logStatus(`Step 3/3 (Region ${i+1}): Running Behavior Classification...`);
+                logStatus(`Step 3/3 (Region ${i+1}): Classifying SDM & Behaviors...`);
                 const classData = await callGemini(apiKey, CLASSIFICATION_PROMPT_TEMPLATE, CLASSIFICATION_SCHEMA, filteredTranscriptText);
 
                 const finalReg = { ...reg, ...classData };
-                
-                logStatus(`Validating Rule Constraints...`);
                 applyRuleLogic(finalReg, turns);
                 finalRegions.push(finalReg);
             }
 
-            logStatus("Analysis Complete. Rendering decoupled UI...");
-            renderUI(finalRegions, turns);
+            logStatus("Analysis Complete. Building trees and rendering UI...");
+            
+            const treeRoots = buildDecisionTree(finalRegions);
+            renderUI(finalRegions, treeRoots, turns);
 
         } catch (error) {
             console.error(error);
@@ -487,29 +505,55 @@ async function callGemini(key, systemPrompt, schema, userContent) {
  *  UI RENDERING
  * ============================================================
  */
-function renderUI(regions, turns) {
+
+function renderTreeNode(node) {
+    const sdmBadge = node.is_sdm_decision 
+        ? `<span class="badge sdm-badge-yes">✓ True SDM</span>`
+        : `<span class="badge sdm-badge-no">✗ Not SDM</span>`;
+        
+    let html = `
+    <div class="decision-card" style="border-left-color: ${node.colorTheme.border};">
+        <div class="card-header">
+            <h4>[${node.problem_area}] ${node.summary}</h4>
+            ${sdmBadge}
+            <span class="badge" style="background: ${node.colorTheme.bg}; color: ${node.colorTheme.tag}; border: 1px solid ${node.colorTheme.border}">${node.decision_type || 'Clinical'}</span>
+        </div>
+        <div style="font-size:0.85rem; color:#7f8fa6; margin-top:5px; margin-bottom:5px;">
+            Turns: [${node.relevant_turn_indices.join(', ')}]
+        </div>
+        ${node.sdm_rationale ? `<div style="font-size:0.85rem; color:#555; font-style:italic;">"${node.sdm_rationale}"</div>` : ''}`;
+        
+    if (node.children && node.children.length > 0) {
+        html += `<div class="tree-children">`;
+        node.children.forEach(child => {
+            html += renderTreeNode(child);
+        });
+        html += `</div>`;
+    }
+    
+    html += `</div>`;
+    return html;
+}
+
+function renderUI(regions, treeRoots, turns) {
     const results = document.getElementById('results');
     
-    let html = `<h2>Executive Summary</h2>`;
-    html += `<div class="dashboard-grid">`;
-    regions.forEach(reg => {
-        html += `
-        <div class="decision-card" style="border-top-color: ${reg.colorTheme.border}">
-            <div class="card-header">
-                <h4>${reg.summary}</h4>
-                <span class="badge" style="background: ${reg.colorTheme.bg}; color: ${reg.colorTheme.tag};">${reg.decision_type || 'Clinical'}</span>
-            </div>
-            <div style="font-size:0.85rem; color:#7f8fa6; margin-top:10px;">
-                Turns: [${reg.relevant_turn_indices.join(', ')}]
-            </div>
-        </div>`;
+    // --- EXECUTIVE SUMMARY (TREE VIEW) ---
+    let html = `<h2>Hierarchical Executive Summary</h2>`;
+    html += `<div class="tree-container">`;
+    treeRoots.forEach(root => {
+        html += renderTreeNode(root);
     });
     html += `</div>`;
 
+    // --- ABSTRACTED DECISION MAPS ---
     html += `<h2>Abstracted Decision Maps</h2>`;
     html += `<div class="decision-map-container">`;
     regions.forEach(reg => {
-        const optionsHtml = (reg.options_discussed || []).map(o => `<li><strong>${o.label}</strong> (ID: ${o.option_id})</li>`).join('');
+        const optionsHtml = (reg.options_discussed || []).map(o => {
+            const contemp = o.is_contemporaneous === false ? ' (Future/Contingent)' : '';
+            return `<li><strong>${o.label}</strong> (ID: ${o.option_id})${contemp}</li>`;
+        }).join('');
         
         let behaviorsHtml = '';
         if (reg.classified_turns) {
@@ -524,9 +568,14 @@ function renderUI(regions, turns) {
             });
         }
 
+        const parentBadge = (reg.parent_decision_id && reg.parent_decision_id !== 'none') 
+            ? `<span class="badge" style="background:#e0e0e0;">Child of: ${reg.parent_decision_id}</span>` 
+            : '';
+
         html += `
-        <div class="decision-map-box" style="border-left: 6px solid ${reg.colorTheme.border}">
+        <div class="decision-map-box" style="border-top: 6px solid ${reg.colorTheme.border}">
             <h3 style="margin-top:0;">${reg.summary}</h3>
+            ${parentBadge}
             <p style="font-size:0.9rem; color:#555;">${reg.rationale || reg.boundary_rationale || ''}</p>
             <div class="map-options">
                 <strong>Options Considered:</strong>
@@ -545,10 +594,8 @@ function renderUI(regions, turns) {
     html += `<div class="global-transcript">`;
 
     turns.forEach((turn) => {
-        // Find which regions this turn belongs to
         const activeRegions = regions.filter(r => r.relevant_turn_indices.includes(turn.index));
         
-        // Find behaviors mapped specifically to this turn
         const turnTags = [];
         activeRegions.forEach(r => {
             if(r.classified_turns) {
@@ -561,7 +608,6 @@ function renderUI(regions, turns) {
             }
         });
 
-        // Determine background and borders
         let turnBg = 'transparent';
         let turnBorder = 'transparent';
         
@@ -569,7 +615,6 @@ function renderUI(regions, turns) {
             turnBg = activeRegions[0].colorTheme.bg;
             turnBorder = activeRegions[0].colorTheme.border;
         } else if (activeRegions.length > 1) {
-            // Overlapping - mix or use a generic highlight
             turnBg = '#f1f2f6';
             turnBorder = '#2f3640'; 
         }
