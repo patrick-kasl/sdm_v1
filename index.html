@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CCQ SDM Pipeline v0.6 - Hierarchical Analyzer</title>
+    <title>CCQ SDM Pipeline v0.7 - Unified Hierarchical Analyzer</title>
     <style>
         :root {
             --primary: #4a69bd;
@@ -42,17 +42,33 @@
         }
         button:hover { background-color: #3c55a5; }
 
-        /* DASHBOARD & TREE */
+        /* UNIFIED DASHBOARD & TREE */
         .tree-container {
             margin-bottom: 40px;
         }
         .decision-card {
             border: 1px solid #e1e4e8; border-radius: 8px; padding: 20px;
             background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.03);
-            border-left: 5px solid #ccc;
+            border-left: 6px solid #ccc;
             margin-bottom: 15px;
         }
-        .card-header h4 { margin: 0 0 8px 0; font-size: 1.15rem; }
+        
+        /* Clickable Navigation Elements */
+        .card-header { 
+            margin-bottom: 15px; 
+            cursor: pointer; 
+            padding: 8px; 
+            border-radius: 6px; 
+            transition: background 0.2s;
+            margin-top: -8px; 
+            margin-left: -8px; 
+            margin-right: -8px;
+        }
+        .card-header:hover {
+            background-color: rgba(0,0,0,0.03);
+        }
+        .card-header h4 { margin: 0 0 8px 0; font-size: 1.25rem; }
+        
         .badge {
             display: inline-block; padding: 4px 8px; border-radius: 4px;
             font-size: 0.75rem; font-weight: bold; background: #eee; margin-right: 5px;
@@ -61,22 +77,16 @@
         .sdm-badge-no { background: #95a5a6; color: white; }
         
         .tree-children {
-            margin-left: 30px;
+            margin-left: 20px;
             border-left: 2px dashed #bdc3c7;
             padding-left: 20px;
-            margin-top: 15px;
+            margin-top: 20px;
+            padding-top: 10px;
         }
 
-        /* ABSTRACTED DECISION MAPS */
-        .decision-map-container {
-            display: flex; flex-direction: column; gap: 20px; margin-bottom: 40px;
-        }
-        .decision-map-box {
-            border: 1px solid #dcdde1; border-radius: 8px; background: #fff;
-            padding: 20px;
-        }
+        /* CARD DETAILS (OPTIONS & BEHAVIORS) */
         .map-options {
-            background: #f8f9fa; padding: 15px; border-radius: 6px; margin-bottom: 15px;
+            background: #f8f9fa; padding: 12px 15px; border-radius: 6px; margin-bottom: 15px;
         }
         .map-behaviors {
             display: flex; flex-wrap: wrap; gap: 10px;
@@ -84,6 +94,12 @@
         .behavior-pill {
             background: #e8ecf1; border: 1px solid #d1d8e0; border-radius: 20px;
             padding: 5px 12px; font-size: 0.85rem; display: flex; align-items: center; gap: 8px;
+            cursor: pointer; transition: all 0.2s;
+        }
+        .behavior-pill:hover {
+            transform: scale(1.03);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            background: #dcdde1;
         }
         .behavior-pill.invalid { text-decoration: line-through; opacity: 0.5; }
         .mapped-option-tag {
@@ -99,12 +115,12 @@
         }
         .turn-container {
             display: flex; margin-bottom: 10px; border-radius: 6px;
-            border-left: 4px solid transparent;
+            border-left: 4px solid transparent; scroll-margin-top: 20px;
         }
         .turn-meta {
             width: 150px; flex-shrink: 0; padding: 10px;
             font-size: 0.8rem; font-weight: bold; color: #7f8fa6;
-            text-align: right; border-right: 2px solid #f1f2f6;
+            text-align: right; border-right: 2px solid rgba(0,0,0,0.05);
         }
         .turn-content {
             flex-grow: 1; padding: 10px 15px; font-family: monospace;
@@ -121,19 +137,28 @@
         /* Utility */
         .loading { display: none; padding: 20px; background: #f1f2f6; margin-bottom:20px; border-radius:4px; font-family: monospace;}
         .error { color: #e84118; margin-top: 10px; }
+
+        /* Animation for scrolling jump */
+        @keyframes flash-highlight {
+            0% { outline: 3px solid #f39c12; background-color: rgba(243, 156, 18, 0.1); }
+            100% { outline: 3px solid transparent; background-color: transparent; }
+        }
+        .flash-turn {
+            animation: flash-highlight 2s ease-out;
+        }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>SDM Analyzer: Hierarchical Pipeline (v0.6)</h1>
+    <h1>SDM Analyzer: Unified Hierarchical Pipeline (v0.7)</h1>
     
     <div class="setup-box">
         <label><strong>1. Google Gemini API Key:</strong></label>
         <input type="text" id="apiKey" placeholder="AIzaSy...">
         <label><strong>2. Transcript File (.txt):</strong></label>
         <input type="file" id="fileInput" accept=".txt">
-        <button onclick="runAnalysis()">Run Hierarchical Pipeline</button>
+        <button onclick="runAnalysis()">Run Unified Pipeline</button>
         <div class="error" id="errorMsg"></div>
     </div>
 
@@ -147,11 +172,33 @@
 <script>
 /**
  * ============================================================
+ *  NAVIGATION UTILITY
+ * ============================================================
+ */
+function scrollToTurn(turnIndex) {
+    const el = document.getElementById(`turn-${turnIndex}`);
+    if (el) {
+        // Scroll into view smoothly
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        
+        // Remove animation class if it exists to allow re-triggering
+        el.classList.remove('flash-turn');
+        
+        // Trigger a quick reflow
+        void el.offsetWidth;
+        
+        // Add animation class to flash highlight
+        el.classList.add('flash-turn');
+    }
+}
+
+
+/**
+ * ============================================================
  *  PROMPTS & SCHEMAS
  * ============================================================
  */
 
-// STEP 1: BROAD SEGMENTATION
 const BROAD_SEGMENTATION_PROMPT = `
 You are an expert clinical conversation analyst. Your ONLY goal is to EXTRACT the broad conversational boundaries of clinical decisions, mapping them into a nested tree.
 
@@ -192,7 +239,6 @@ const BROAD_SEGMENTATION_SCHEMA = {
   }
 };
 
-// STEP 2: RELEVANCE FILTERING
 const RELEVANCE_FILTERING_PROMPT = `
 You are an expert clinical data parser. You will be provided with a specific "Decision Topic" and a chunk of a clinical transcript where this topic is discussed.
 Your ONLY task is to identify the exact turn indices that are RELEVANT to the provided Decision Topic. 
@@ -216,7 +262,6 @@ const RELEVANCE_FILTERING_SCHEMA = {
   "required": ["decision_id", "relevant_turn_indices"]
 };
 
-// STEP 3: CLASSIFICATION
 const CLASSIFICATION_PROMPT_TEMPLATE = `
 You are analyzing a filtered segment of a clinical transcript for Shared Decision-Making (SDM). You will only see lines relevant to ONE specific decision.
 
@@ -309,7 +354,6 @@ function parseTranscriptToTurns(rawText) {
     const lines = rawText.split('\n');
     const turns = [];
     let currentTurn = null;
-    // Updated Regex to include SECOND DOCTOR to fix the parsing bug
     const speakerRegex = /^(DOCTOR|SECOND DOCTOR|PATIENT|CLINICIAN|PROVIDER|MOM|DAD|FAMILY)\b/i;
 
     lines.forEach((line) => {
@@ -357,11 +401,25 @@ function applyRuleLogic(region, allTurns) {
 
     let firstOptionsIndex = Infinity;
     let lastDecisionIndex = -1;
+    let hasOptionsImplied = false;
+    let hasClinicianBehavior = false;
 
     region.classified_turns.forEach(ct => {
+        const turnData = allTurns[ct.turn_index];
+        if (!turnData) return;
+        const currentSpeakerType = getSpeakerType(turnData.speaker_line);
+
         ct.behaviors.forEach(b => {
-            if (b.behavior_name === "Options Implied" && ct.turn_index < firstOptionsIndex) firstOptionsIndex = ct.turn_index;
-            if ((b.behavior_name === "Decision Stated" || b.behavior_name === "Decision Deferred with Plan") && ct.turn_index > lastDecisionIndex) lastDecisionIndex = ct.turn_index;
+            if (b.behavior_name === "Options Implied") {
+                hasOptionsImplied = true;
+                if (ct.turn_index < firstOptionsIndex) firstOptionsIndex = ct.turn_index;
+            }
+            if ((b.behavior_name === "Decision Stated" || b.behavior_name === "Decision Deferred with Plan") && ct.turn_index > lastDecisionIndex) {
+                lastDecisionIndex = ct.turn_index;
+            }
+            if (currentSpeakerType === "CLINICIAN") {
+                hasClinicianBehavior = true;
+            }
         });
     });
     
@@ -385,6 +443,16 @@ function applyRuleLogic(region, allTurns) {
             }
         });
     });
+
+    if (region.options_discussed && region.options_discussed.length > 0 && !hasOptionsImplied) {
+        region.is_sdm_decision = false;
+        region.sdm_rationale = "[System Override] Invalid SDM: Options discussed but no specific turn mapped to 'Options Implied'.";
+    }
+
+    if (!hasClinicianBehavior && region.decision_type !== "Patient Education") {
+        region.is_sdm_decision = false;
+        region.sdm_rationale = "[System Override] Invalid SDM: No clinician-driven behaviors detected. Likely a patient-only inquiry.";
+    }
 }
 
 function buildDecisionTree(regions) {
@@ -433,7 +501,6 @@ async function runAnalysis() {
             const broadData = await callGemini(apiKey, BROAD_SEGMENTATION_PROMPT, BROAD_SEGMENTATION_SCHEMA, fullTranscriptText);
             const decisions = broadData.decisions || [];
             
-            // Filter out Patient Education from standard processing if needed, but we map them visually here
             if (decisions.length === 0) {
                 logStatus("No decisions found. Pipeline Complete.");
                 loader.style.display = "none";
@@ -451,7 +518,7 @@ async function runAnalysis() {
                     if (turns[j]) chunkText += `[TURN ${j}] ${turns[j].speaker_line}\n${turns[j].text_lines.join('\n')}\n\n`;
                 }
 
-                logStatus(`Step 2/3 (Region ${i+1}): Extracting relevant non-overlapping lines...`);
+                logStatus(`Step 2/3 (Region ${i+1}): Extracting relevant context lines...`);
                 const filterPromptStr = `Topic: ${reg.summary}\n\nTranscript Chunk:\n${chunkText}`;
                 const filterData = await callGemini(apiKey, RELEVANCE_FILTERING_PROMPT, RELEVANCE_FILTERING_SCHEMA, filterPromptStr);
                 
@@ -471,8 +538,7 @@ async function runAnalysis() {
                 finalRegions.push(finalReg);
             }
 
-            logStatus("Analysis Complete. Building trees and rendering UI...");
-            
+            logStatus("Analysis Complete. Building unified tree and rendering UI...");
             const treeRoots = buildDecisionTree(finalRegions);
             renderUI(finalRegions, treeRoots, turns);
 
@@ -519,19 +585,77 @@ function renderTreeNode(node) {
         : node.is_sdm_decision 
             ? `<span class="badge sdm-badge-yes">✓ True SDM</span>`
             : `<span class="badge sdm-badge-no">✗ Not SDM</span>`;
-        
+            
+    // Determine the very first turn index for jumping to this decision context
+    const firstTurnIndex = (node.relevant_turn_indices && node.relevant_turn_indices.length > 0) 
+        ? node.relevant_turn_indices[0] 
+        : null;
+
+    // Build Options
+    const optionsHtml = (node.options_discussed || []).map(o => {
+        const contemp = o.is_contemporaneous === false ? ' <span style="color:#e67e22;font-size:0.8rem;">(Future/Contingent)</span>' : '';
+        return `<li><strong>${o.label}</strong> <span style="color:#7f8fa6;font-size:0.8rem;">(ID: ${o.option_id})</span>${contemp}</li>`;
+    }).join('');
+    
+    // Build Behaviors
+    let behaviorsHtml = '';
+    if (node.classified_turns) {
+        node.classified_turns.forEach(ct => {
+            ct.behaviors.forEach(b => {
+                const invalidClass = b.isInvalid ? 'invalid' : '';
+                const title = b.isInvalid ? `Invalid: ${b.invalidReasons.join(', ')}` : `Score: ${b.confidence_score}%`;
+                
+                let optionLabelTag = '';
+                if (b.related_option_id && node.options_discussed) {
+                    const matchedOpt = node.options_discussed.find(o => o.option_id === b.related_option_id);
+                    if (matchedOpt) {
+                        optionLabelTag = `<span class="mapped-option-tag" title="Mapped to: ${matchedOpt.label}">→ ${matchedOpt.label}</span>`;
+                    }
+                }
+
+                // Added onclick behavior for jumping to specific behavior turns
+                behaviorsHtml += `<div class="behavior-pill ${invalidClass}" title="Click to jump to Turn ${ct.turn_index} | ${title}" onclick="scrollToTurn(${ct.turn_index})">
+                    <span style="font-weight:bold; color: ${node.colorTheme.tag}">T${ct.turn_index}</span> 
+                    ${b.behavior_name}
+                    ${optionLabelTag}
+                </div>`;
+            });
+        });
+    }
+
+    // Build the Unified Card
     let html = `
     <div class="decision-card" style="border-left-color: ${node.colorTheme.border}; opacity: ${isEducation ? '0.85' : '1'};">
-        <div class="card-header">
+        <!-- Clickable header to jump to start of decision -->
+        <div class="card-header" ${firstTurnIndex !== null ? `onclick="scrollToTurn(${firstTurnIndex})" title="Click to jump to start of decision (Turn ${firstTurnIndex})"` : ''}>
             <h4>[${node.problem_area}] ${node.summary}</h4>
-            ${sdmBadge}
-            <span class="badge" style="background: ${node.colorTheme.bg}; color: ${node.colorTheme.tag}; border: 1px solid ${node.colorTheme.border}">${node.decision_type || 'Clinical'}</span>
+            <div>
+                ${sdmBadge}
+                <span class="badge" style="background: ${node.colorTheme.bg}; color: ${node.colorTheme.tag}; border: 1px solid ${node.colorTheme.border}">${node.decision_type || 'Clinical'}</span>
+            </div>
         </div>
-        <div style="font-size:0.85rem; color:#7f8fa6; margin-top:5px; margin-bottom:5px;">
-            Turns: [${node.relevant_turn_indices.join(', ')}]
-        </div>
-        ${node.sdm_rationale ? `<div style="font-size:0.85rem; color:#555; font-style:italic;">"${node.sdm_rationale}"</div>` : ''}`;
         
+        <div style="font-size:0.85rem; color:#7f8fa6; margin-bottom:10px;">
+            <strong>Turns:</strong> [${node.relevant_turn_indices.join(', ')}]
+        </div>
+        
+        <div style="font-size:0.9rem; color:#555; margin-bottom:15px; border-left: 3px solid #eee; padding-left: 10px;">
+            <em>${node.rationale || node.sdm_rationale || node.boundary_rationale || 'No rationale provided.'}</em>
+        </div>
+
+        <div class="map-options">
+            <strong style="font-size: 0.9rem;">Options Considered:</strong>
+            <ul style="margin: 5px 0 0 0; padding-left: 20px; font-size: 0.9rem;">${optionsHtml || '<li>None explicitly mapped</li>'}</ul>
+        </div>
+        
+        <div style="margin-top:15px;">
+            <strong style="font-size: 0.9rem;">Mapped Behaviors:</strong>
+            <div class="map-behaviors" style="margin-top:8px;">
+                ${behaviorsHtml || '<span style="color:#999; font-size:0.9rem;">No behaviors detected.</span>'}
+            </div>
+        </div>`;
+        
+    // Recursively render children inside the card
     if (node.children && node.children.length > 0) {
         html += `<div class="tree-children">`;
         node.children.forEach(child => {
@@ -547,66 +671,11 @@ function renderTreeNode(node) {
 function renderUI(regions, treeRoots, turns) {
     const results = document.getElementById('results');
     
-    // --- EXECUTIVE SUMMARY (TREE VIEW) ---
-    let html = `<h2>Hierarchical Executive Summary</h2>`;
+    // --- UNIFIED DECISION DASHBOARD ---
+    let html = `<h2>Unified Decision Dashboard</h2>`;
     html += `<div class="tree-container">`;
     treeRoots.forEach(root => {
         html += renderTreeNode(root);
-    });
-    html += `</div>`;
-
-    // --- ABSTRACTED DECISION MAPS ---
-    html += `<h2>Abstracted Decision Maps</h2>`;
-    html += `<div class="decision-map-container">`;
-    regions.forEach(reg => {
-        const optionsHtml = (reg.options_discussed || []).map(o => {
-            const contemp = o.is_contemporaneous === false ? ' (Future/Contingent)' : '';
-            return `<li><strong>${o.label}</strong> (ID: ${o.option_id})${contemp}</li>`;
-        }).join('');
-        
-        let behaviorsHtml = '';
-        if (reg.classified_turns) {
-            reg.classified_turns.forEach(ct => {
-                ct.behaviors.forEach(b => {
-                    const invalidClass = b.isInvalid ? 'invalid' : '';
-                    const title = b.isInvalid ? `Invalid: ${b.invalidReasons.join(', ')}` : `Score: ${b.confidence_score}%`;
-                    
-                    // Specific mapping logic for displaying related options
-                    let optionLabelTag = '';
-                    if (b.related_option_id && reg.options_discussed) {
-                        const matchedOpt = reg.options_discussed.find(o => o.option_id === b.related_option_id);
-                        if (matchedOpt) {
-                            optionLabelTag = `<span class="mapped-option-tag" title="Mapped to: ${matchedOpt.label}">→ ${matchedOpt.label}</span>`;
-                        }
-                    }
-
-                    behaviorsHtml += `<div class="behavior-pill ${invalidClass}" title="${title}">
-                        <span style="font-weight:bold; color: ${reg.colorTheme.tag}">T${ct.turn_index}</span> 
-                        ${b.behavior_name}
-                        ${optionLabelTag}
-                    </div>`;
-                });
-            });
-        }
-
-        const parentBadge = (reg.parent_decision_id && reg.parent_decision_id !== 'none') 
-            ? `<span class="badge" style="background:#e0e0e0;">Child of: ${reg.parent_decision_id}</span>` 
-            : '';
-
-        html += `
-        <div class="decision-map-box" style="border-top: 6px solid ${reg.colorTheme.border}">
-            <h3 style="margin-top:0;">${reg.summary}</h3>
-            ${parentBadge}
-            <p style="font-size:0.9rem; color:#555;">${reg.rationale || reg.boundary_rationale || ''}</p>
-            <div class="map-options">
-                <strong>Options Considered:</strong>
-                <ul style="margin: 5px 0 0 0; padding-left: 20px;">${optionsHtml || '<li>None explicitly mapped</li>'}</ul>
-            </div>
-            <strong>Mapped Behaviors:</strong>
-            <div class="map-behaviors" style="margin-top:10px;">
-                ${behaviorsHtml || '<span style="color:#999; font-size:0.9rem;">No behaviors detected.</span>'}
-            </div>
-        </div>`;
     });
     html += `</div>`;
 
@@ -636,7 +705,14 @@ function renderUI(regions, treeRoots, turns) {
             turnBg = activeRegions[0].colorTheme.bg;
             turnBorder = activeRegions[0].colorTheme.border;
         } else if (activeRegions.length > 1) {
-            turnBg = '#f1f2f6';
+            // CSS Striped Gradient for overlapping decisions
+            const colors = activeRegions.map(r => r.colorTheme.bg);
+            const stripeWidth = 15; // px per stripe
+            const gradientStops = colors.map((color, idx) => 
+                `${color} ${idx * stripeWidth}px, ${color} ${(idx + 1) * stripeWidth}px`
+            ).join(', ');
+            
+            turnBg = `repeating-linear-gradient(45deg, ${gradientStops})`;
             turnBorder = '#2f3640'; 
         }
 
@@ -644,8 +720,9 @@ function renderUI(regions, treeRoots, turns) {
             `<span class="text-tag" style="background:${t.color}; ${t.invalid ? 'text-decoration:line-through; opacity:0.5;' : ''}">${t.text}</span>`
         ).join('');
 
+        // Added id="turn-{index}" to enable navigation jumping
         html += `
-        <div class="turn-container" style="background-color: ${turnBg}; border-left-color: ${turnBorder};">
+        <div id="turn-${turn.index}" class="turn-container" style="background: ${turnBg}; border-left-color: ${turnBorder};">
             <div class="turn-meta">
                 <div>[TURN ${turn.index}]</div>
                 <div style="color:#2f3640;">${turn.speaker_line}</div>
