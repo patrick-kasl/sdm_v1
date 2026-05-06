@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CCQ SDM Pipeline v0.7 - Unified Hierarchical Analyzer</title>
+    <title>CCQ SDM Pipeline v0.8 - Unified Hierarchical Analyzer</title>
     <style>
         :root {
             --primary: #4a69bd;
@@ -151,7 +151,7 @@
 <body>
 
 <div class="container">
-    <h1>SDM Analyzer: Unified Hierarchical Pipeline (v0.7)</h1>
+    <h1>SDM Analyzer: Unified Hierarchical Pipeline (v0.8)</h1>
     
     <div class="setup-box">
         <label><strong>1. Google Gemini API Key:</strong></label>
@@ -205,12 +205,11 @@ You are an expert clinical conversation analyst. Your ONLY goal is to EXTRACT th
 CRITICAL INSTRUCTIONS:
 1. PROBLEM AREA: Group related discussions under a shared "problem_area" string.
 2. HIERARCHY & CONTINGENCY: Identify dependent/contingent decisions.
-3. ALLOW OVERLAPS: Overlapping turn indices are entirely expected.
+3. BROAD BOUNDARIES: Be sweeping and inclusive. Capture from the VERY FIRST mention of the problem/values to the VERY LAST resolution. Overlapping turn indices are entirely expected. Do not worry about irrelevant interleaved lines; a downstream prompt will filter them out, so lean towards broader bounds here.
 4. EXCLUSIONS: Do NOT flag patient-driven questions where the clinician just answers without offering a clinical path.
-5. SPLIT MEDICATIONS: Treat each individual medication as a distinct decision object, rather than lumping a multi-drug regimen into a single decision. Classify them as either "Medication Refill" or "New Medication/Change".
-6. MERGE OVERLAPPING NON-MUTUALLY EXCLUSIVE OPTIONS: Combine tightly coupled, non-mutually exclusive options (e.g., prescribing an SSRI AND recommending therapy for depression) into a single decision object.
-7. PATIENT EDUCATION: If there isn't a decision currently happening, if it's not about a current problem, or if the education is about hypothetical/future conditions not present in the current encounter, classify it as "Patient Education".
-8. FOLLOW-UPS: Standard administrative follow-ups should NOT be marked as contingent unless explicitly dependent on a clinical outcome.
+5. MERGE OVERLAPPING NON-MUTUALLY EXCLUSIVE OPTIONS: Combine tightly coupled, non-mutually exclusive options (e.g., prescribing an SSRI AND recommending therapy for depression) into a single decision object.
+6. PATIENT EDUCATION BOUNDARIES: If education, rationale, or risk-explanation is directly tied to an active clinical problem or decision, it MUST remain inside that "Clinical" decision object. Classify as "Patient Education" ONLY if it is standalone, non-actionable education about hypothetical/future conditions not present in the current encounter.
+7. FOLLOW-UPS: Standard administrative follow-ups should NOT be marked as contingent unless explicitly dependent on a clinical outcome.
 `;
 
 const BROAD_SEGMENTATION_SCHEMA = {
@@ -227,7 +226,7 @@ const BROAD_SEGMENTATION_SCHEMA = {
           "summary": { "type": "string" },
           "decision_type": { 
              "type": "string", 
-             "enum": ["Clinical", "Administrative/Logistical", "Contingent/Future", "Medication Refill", "New Medication/Change", "Patient Education"]
+             "enum": ["Clinical", "Administrative/Logistical", "Contingent/Future", "Patient Education"]
           },
           "boundary_rationale": { "type": "string" },
           "broad_start_turn_index": { "type": "integer" },
@@ -270,7 +269,7 @@ CRITICAL INSTRUCTIONS:
 2. NON-VIABLE OPTIONS: If an option is presented but worded to imply it is medically impossible, label it as non-viable.
 3. STATUS QUO / TIER 0: MUST extract "status quo" (e.g., continue current management, watch & wait) if implied.
 4. CLINICIAN ANCHORING: For 'Decision Stated' or 'Decision Deferred with Plan', prefer anchoring the behavior on the Clinician's turn (since they get the last word/agree to the plan). Fall back to the patient only if they make a unilateral decision that the doctor does not respond to.
-5. OPTIONS IMPLIED REQUIRED: If you extract any options, you MUST include 'Options Implied' behavior mapped to the exact turn where the option was introduced.
+5. OPTIONS IMPLIED ANCHORING: If you extract any options, you MUST include 'Options Implied' behavior. Crucially, anchor it to the EXACT turn where the clinician actively presents, proposes, or clarifies that an option is a viable path forward or can be altered. Do NOT anchor it to mere historical context or the first time a medication is simply mentioned in passing.
 6. OPTION MAPPING: For behaviors like 'Explaining Benefits', 'Explaining Risks', and 'Options Implied', you MUST populate the \`related_option_id\` with the ID of the option being discussed.
 
 TAXONOMY DEFINITIONS:
@@ -354,7 +353,9 @@ function parseTranscriptToTurns(rawText) {
     const lines = rawText.split('\n');
     const turns = [];
     let currentTurn = null;
-    const speakerRegex = /^(DOCTOR|SECOND DOCTOR|PATIENT|CLINICIAN|PROVIDER|MOM|DAD|FAMILY)\b/i;
+    
+    // Updated Regex to dynamically catch FIRST DOCTOR, SECOND DOCTOR, PHARMACIST, NURSE, etc.
+    const speakerRegex = /^(?:(?:FIRST|SECOND|THIRD)\s+)?(?:DOCTOR|PATIENT|CLINICIAN|PROVIDER|MOM|DAD|FAMILY|PHARMACIST|NURSE)\b/i;
 
     lines.forEach((line) => {
         const clean = line.trim();
@@ -377,7 +378,7 @@ function parseTranscriptToTurns(rawText) {
 function applyRuleLogic(region, allTurns) {
     const getSpeakerType = (speakerName) => {
         const s = speakerName.toUpperCase();
-        if (s.includes("DOC") || s.includes("CLIN") || s.includes("PROV")) return "CLINICIAN";
+        if (s.includes("DOC") || s.includes("CLIN") || s.includes("PROV") || s.includes("PHARM") || s.includes("NURSE")) return "CLINICIAN";
         return "PATIENT";
     };
 
@@ -623,7 +624,7 @@ function renderTreeNode(node) {
         });
     }
 
-    // Build the Unified Card
+    // Build the Unified Card with added exposed boundaries for debugging
     let html = `
     <div class="decision-card" style="border-left-color: ${node.colorTheme.border}; opacity: ${isEducation ? '0.85' : '1'};">
         <!-- Clickable header to jump to start of decision -->
@@ -636,7 +637,8 @@ function renderTreeNode(node) {
         </div>
         
         <div style="font-size:0.85rem; color:#7f8fa6; margin-bottom:10px;">
-            <strong>Turns:</strong> [${node.relevant_turn_indices.join(', ')}]
+            <strong>Broad Bounds:</strong> [${node.broad_start_turn_index}, ${node.broad_end_turn_index}] &nbsp;|&nbsp; 
+            <strong>Filtered Turns:</strong> [${node.relevant_turn_indices.join(', ')}]
         </div>
         
         <div style="font-size:0.9rem; color:#555; margin-bottom:15px; border-left: 3px solid #eee; padding-left: 10px;">
