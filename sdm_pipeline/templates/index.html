@@ -27,169 +27,184 @@
         }
         h1, h2, h3 { color: #2c3e50; }
         
+        /* NAVIGATION */
+        .nav-bar {
+            display: flex; gap: 10px; margin-bottom: 25px;
+            border-bottom: 2px solid var(--border); padding-bottom: 15px;
+        }
+        .nav-btn {
+            background: transparent; color: var(--primary); border: 2px solid var(--primary);
+            padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 1rem; font-weight: bold;
+        }
+        .nav-btn.active { background: var(--primary); color: white; }
+        .nav-btn:hover:not(.active) { background: #eef2fa; }
+
+        /* VIEWS */
+        .view-section { display: none; }
+        .view-section.active { display: block; }
+
+        /* HISTORY TABLE */
+        .history-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .history-table th, .history-table td { padding: 12px; text-align: left; border-bottom: 1px solid var(--border); }
+        .history-table th { background: #f1f2f6; }
+        .history-table tr:hover { background-color: #f8f9fa; cursor: pointer; }
+        .view-link { color: var(--primary); font-weight: bold; cursor: pointer; }
+
         /* SETUP BOX */
-        .setup-box {
-            background: #f1f2f6; padding: 20px; border-radius: 8px;
-            margin-bottom: 30px; border: 1px solid #dfe4ea;
-        }
-        input[type="text"], input[type="file"] {
-            width: 100%; padding: 10px; margin: 5px 0 15px 0;
-            border-radius: 4px; border: 1px solid #ccc;
-        }
-        button {
-            background-color: var(--primary); color: white; border: none;
-            padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 1rem;
-        }
-        button:hover { background-color: #3c55a5; }
+        .setup-box { background: #f1f2f6; padding: 20px; border-radius: 8px; margin-bottom: 30px; border: 1px solid #dfe4ea; }
+        input[type="text"], input[type="file"] { width: 100%; padding: 10px; margin: 5px 0 15px 0; border-radius: 4px; border: 1px solid #ccc; box-sizing: border-box; }
+        button.run-btn { background-color: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 1rem; }
+        button.run-btn:hover { background-color: #3c55a5; }
 
         /* UNIFIED DASHBOARD & TREE */
-        .tree-container {
-            margin-bottom: 40px;
-        }
+        .tree-container { margin-bottom: 40px; }
         .decision-card {
             border: 1px solid #e1e4e8; border-radius: 8px; padding: 20px;
             background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.03);
-            border-left: 6px solid #ccc;
-            margin-bottom: 15px;
+            border-left: 6px solid #ccc; margin-bottom: 15px;
         }
-        
-        /* Clickable Navigation Elements */
         .card-header { 
-            margin-bottom: 15px; 
-            cursor: pointer; 
-            padding: 8px; 
-            border-radius: 6px; 
-            transition: background 0.2s;
-            margin-top: -8px; 
-            margin-left: -8px; 
-            margin-right: -8px;
+            margin-bottom: 15px; cursor: pointer; padding: 8px; border-radius: 6px; 
+            transition: background 0.2s; margin-top: -8px; margin-left: -8px; margin-right: -8px;
         }
-        .card-header:hover {
-            background-color: rgba(0,0,0,0.03);
-        }
+        .card-header:hover { background-color: rgba(0,0,0,0.03); }
         .card-header h4 { margin: 0 0 8px 0; font-size: 1.25rem; }
         
-        .badge {
-            display: inline-block; padding: 4px 8px; border-radius: 4px;
-            font-size: 0.75rem; font-weight: bold; background: #eee; margin-right: 5px;
-        }
+        .badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; background: #eee; margin-right: 5px; }
         .sdm-badge-yes { background: #27ae60; color: white; }
         .sdm-badge-no { background: #95a5a6; color: white; }
         
-        .tree-children {
-            margin-left: 20px;
-            border-left: 2px dashed #bdc3c7;
-            padding-left: 20px;
-            margin-top: 20px;
-            padding-top: 10px;
-        }
+        .tree-children { margin-left: 20px; border-left: 2px dashed #bdc3c7; padding-left: 20px; margin-top: 20px; padding-top: 10px; }
 
-        /* CARD DETAILS (OPTIONS & BEHAVIORS) */
-        .map-options {
-            background: #f8f9fa; padding: 12px 15px; border-radius: 6px; margin-bottom: 15px;
-        }
-        .map-behaviors {
-            display: flex; flex-wrap: wrap; gap: 10px;
-        }
+        /* CARD DETAILS */
+        .map-options { background: #f8f9fa; padding: 12px 15px; border-radius: 6px; margin-bottom: 15px; }
+        .map-behaviors { display: flex; flex-wrap: wrap; gap: 10px; }
         .behavior-pill {
             background: #e8ecf1; border: 1px solid #d1d8e0; border-radius: 20px;
             padding: 5px 12px; font-size: 0.85rem; display: flex; align-items: center; gap: 8px;
             cursor: pointer; transition: all 0.2s;
         }
-        .behavior-pill:hover {
-            transform: scale(1.03);
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            background: #dcdde1;
-        }
+        .behavior-pill:hover { transform: scale(1.03); box-shadow: 0 2px 5px rgba(0,0,0,0.1); background: #dcdde1; }
         .behavior-pill.invalid { text-decoration: line-through; opacity: 0.5; }
-        .mapped-option-tag {
-            font-size: 0.7rem; background: #fff; padding: 2px 6px; 
-            border-radius: 10px; border: 1px solid #dcdde1; color: #555;
-            white-space: nowrap; text-overflow: ellipsis; max-width: 150px; overflow: hidden;
-        }
+        .mapped-option-tag { font-size: 0.7rem; background: #fff; padding: 2px 6px; border-radius: 10px; border: 1px solid #dcdde1; color: #555; white-space: nowrap; text-overflow: ellipsis; max-width: 150px; overflow: hidden; }
 
         /* GLOBAL TRANSCRIPT */
-        .global-transcript {
-            background: #fff; border: 1px solid #dcdde1; border-radius: 8px;
-            padding: 20px;
-        }
-        .turn-container {
-            display: flex; margin-bottom: 10px; border-radius: 6px;
-            border-left: 4px solid transparent; scroll-margin-top: 20px;
-        }
-        .turn-meta {
-            width: 150px; flex-shrink: 0; padding: 10px;
-            font-size: 0.8rem; font-weight: bold; color: #7f8fa6;
-            text-align: right; border-right: 2px solid rgba(0,0,0,0.05);
-        }
-        .turn-content {
-            flex-grow: 1; padding: 10px 15px; font-family: monospace;
-            font-size: 0.95rem; line-height: 1.5; white-space: pre-wrap;
-        }
-        .turn-tags {
-            display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 5px;
-        }
-        .text-tag {
-            font-size: 0.7rem; padding: 2px 6px; border-radius: 4px;
-            font-family: sans-serif; font-weight: bold; color: #fff;
-        }
+        .global-transcript { background: #fff; border: 1px solid #dcdde1; border-radius: 8px; padding: 20px; }
+        .turn-container { display: flex; margin-bottom: 10px; border-radius: 6px; border-left: 4px solid transparent; scroll-margin-top: 20px; }
+        .turn-meta { width: 150px; flex-shrink: 0; padding: 10px; font-size: 0.8rem; font-weight: bold; color: #7f8fa6; text-align: right; border-right: 2px solid rgba(0,0,0,0.05); }
+        .turn-content { flex-grow: 1; padding: 10px 15px; font-family: monospace; font-size: 0.95rem; line-height: 1.5; white-space: pre-wrap; }
+        .turn-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 5px; }
+        .text-tag { font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; font-family: sans-serif; font-weight: bold; color: #fff; }
 
         /* Utility */
         .loading { display: none; padding: 20px; background: #f1f2f6; margin-bottom:20px; border-radius:4px; font-family: monospace;}
         .error { color: #e84118; margin-top: 10px; }
 
-        /* Animation for scrolling jump */
-        @keyframes flash-highlight {
-            0% { outline: 3px solid #f39c12; background-color: rgba(243, 156, 18, 0.1); }
-            100% { outline: 3px solid transparent; background-color: transparent; }
-        }
-        .flash-turn {
-            animation: flash-highlight 2s ease-out;
-        }
+        @keyframes flash-highlight { 0% { outline: 3px solid #f39c12; background-color: rgba(243, 156, 18, 0.1); } 100% { outline: 3px solid transparent; background-color: transparent; } }
+        .flash-turn { animation: flash-highlight 2s ease-out; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>SDM Analyzer: Unified Hierarchical Pipeline (v0.9)</h1>
-    
-    <div class="setup-box">
-        <label><strong>1. Google Gemini API Key:</strong></label>
-        <input type="text" id="apiKey" placeholder="AIzaSy...">
-        <label><strong>2. Transcript File (.txt):</strong></label>
-        <input type="file" id="fileInput" accept=".txt">
-        <button onclick="runAnalysis()">Run Unified Pipeline</button>
-        <div class="error" id="errorMsg"></div>
+    <h1>SDM Analyzer: Persistent Pipeline (v0.9 Problem-Centric)</h1>
+
+    <div class="nav-bar">
+        <button class="nav-btn active" id="btn-new" onclick="switchTab('new')">+ New Analysis</button>
+        <button class="nav-btn" id="btn-history" onclick="switchTab('history')">Database History</button>
     </div>
 
-    <div class="loading" id="loader">
-        <div id="statusLog"></div>
+    <!-- VIEW: NEW ANALYSIS -->
+    <div id="view-new" class="view-section active">
+        <div class="setup-box">
+            <label><strong>1. Google Gemini API Key:</strong></label>
+            <input type="text" id="apiKey" placeholder="AIzaSy...">
+            <label><strong>2. Transcript File (.txt):</strong></label>
+            <input type="file" id="fileInput" accept=".txt">
+            <button class="run-btn" onclick="runAnalysis()">Run Unified Pipeline</button>
+            <div class="error" id="errorMsg"></div>
+        </div>
+        <div class="loading" id="loader">
+            <div id="statusLog"></div>
+        </div>
     </div>
 
-    <div id="results"></div>
+    <!-- VIEW: HISTORY -->
+    <div id="view-history" class="view-section">
+        <div id="history-content">Loading history...</div>
+    </div>
+
+    <!-- VIEW: RESULTS (Detail View) -->
+    <div id="view-results" class="view-section">
+        <button class="nav-btn" style="margin-bottom: 20px;" onclick="switchTab('history')">← Back to History</button>
+        <div id="resultsContent"></div>
+    </div>
 </div>
 
 <script>
-/**
- * ============================================================
- *  NAVIGATION UTILITY
- * ============================================================
- */
-function scrollToTurn(turnIndex) {
-    const el = document.getElementById(`turn-${turnIndex}`);
-    if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        el.classList.remove('flash-turn');
-        void el.offsetWidth;
-        el.classList.add('flash-turn');
+// --- STATE MANAGEMENT ---
+document.addEventListener('DOMContentLoaded', () => {
+    const savedKey = localStorage.getItem('gemini_api_key');
+    if(savedKey) document.getElementById('apiKey').value = savedKey;
+});
+
+function switchTab(tab) {
+    document.getElementById('view-new').classList.remove('active');
+    document.getElementById('view-history').classList.remove('active');
+    document.getElementById('view-results').classList.remove('active');
+    document.getElementById('btn-new').classList.remove('active');
+    document.getElementById('btn-history').classList.remove('active');
+
+    if(tab === 'new') {
+        document.getElementById('view-new').classList.add('active');
+        document.getElementById('btn-new').classList.add('active');
+    } else if(tab === 'history') {
+        document.getElementById('view-history').classList.add('active');
+        document.getElementById('btn-history').classList.add('active');
+        loadHistory();
+    } else if(tab === 'results') {
+        document.getElementById('view-results').classList.add('active');
     }
 }
 
-/**
- * ============================================================
- *  PROMPTS & SCHEMAS
- * ============================================================
- */
+// --- DATABASE FETCHING ---
+async function loadHistory() {
+    const container = document.getElementById('history-content');
+    container.innerHTML = "Loading database...";
+    try {
+        const res = await fetch('/api/history');
+        const data = await res.json();
+        
+        if (data.length === 0) {
+            container.innerHTML = "<p>No runs found in the database. Run a new analysis!</p>";
+            return;
+        }
+
+        let html = `<table class="history-table"><thead><tr><th>ID</th><th>Transcript Name</th><th>Run Date</th><th>Action</th></tr></thead><tbody>`;
+        data.forEach(row => {
+            html += `<tr onclick="loadRun(${row.id})"><td>#${row.id}</td><td><strong>${row.filename}</strong></td><td>${row.run_date}</td><td class="view-link">View Pipeline →</td></tr>`;
+        });
+        html += `</tbody></table>`;
+        container.innerHTML = html;
+    } catch (e) {
+        container.innerHTML = `<span class="error">Failed to load history: ${e.message}</span>`;
+    }
+}
+
+async function loadRun(id) {
+    document.getElementById('resultsContent').innerHTML = "<p>Loading layout...</p>";
+    switchTab('results');
+    try {
+        const res = await fetch(`/api/run/${id}`);
+        const data = await res.json();
+        const treeRoots = buildDecisionTree(data.regions);
+        renderUI(data.regions, treeRoots, data.turns);
+    } catch (e) {
+        document.getElementById('resultsContent').innerHTML = `<span class="error">Failed to load run data: ${e.message}</span>`;
+    }
+}
+
+// --- PROMPTS & SCHEMAS (Updated to v0.9) ---
 
 const BROAD_SEGMENTATION_PROMPT = `
 You are an expert clinical conversation analyst. Your ONLY goal is to EXTRACT the broad conversational boundaries of distinct actionable problems and decisions, mapping them into a nested tree.
@@ -217,10 +232,7 @@ const BROAD_SEGMENTATION_SCHEMA = {
           "parent_decision_id": { "type": "string", "description": "ID of parent decision, or 'none' if root" },
           "problem_area": { "type": "string" },
           "summary": { "type": "string" },
-          "decision_type": { 
-             "type": "string", 
-             "enum": ["Clinical", "Administrative/Logistical", "Contingent/Future"]
-          },
+          "decision_type": { "type": "string", "enum": ["Clinical", "Administrative/Logistical", "Contingent/Future"] },
           "boundary_rationale": { "type": "string" },
           "broad_start_turn_index": { "type": "integer" },
           "broad_end_turn_index": { "type": "integer" }
@@ -246,10 +258,7 @@ const RELEVANCE_FILTERING_SCHEMA = {
   "type": "object",
   "properties": {
     "decision_id": { "type": "string" },
-    "relevant_turn_indices": {
-      "type": "array",
-      "items": { "type": "integer" }
-    }
+    "relevant_turn_indices": { "type": "array", "items": { "type": "integer" } }
   },
   "required": ["decision_id", "relevant_turn_indices"]
 };
@@ -325,12 +334,6 @@ const CLASSIFICATION_SCHEMA = {
   }
 };
 
-/**
- * ============================================================
- *  LOGIC & PIPELINE RUNNER
- * ============================================================
- */
-
 const REGION_COLORS = [
     { bg: '#e8f4f8', border: '#3498db', tag: '#2980b9' }, 
     { bg: '#f9f0e6', border: '#e67e22', tag: '#d35400' }, 
@@ -346,11 +349,20 @@ function logStatus(msg) {
     log.scrollTop = log.scrollHeight;
 }
 
+function scrollToTurn(turnIndex) {
+    const el = document.getElementById(`turn-${turnIndex}`);
+    if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.remove('flash-turn');
+        void el.offsetWidth;
+        el.classList.add('flash-turn');
+    }
+}
+
 function parseTranscriptToTurns(rawText) {
     const lines = rawText.split('\n');
     const turns = [];
     let currentTurn = null;
-    
     const speakerRegex = /^(?:(?:FIRST|SECOND|THIRD)\s+)?(?:DOCTOR|PATIENT|CLINICIAN|PROVIDER|MOM|DAD|FAMILY|PHARMACIST|NURSE)\b/i;
 
     lines.forEach((line) => {
@@ -433,7 +445,6 @@ function applyRuleLogic(region, allTurns) {
             b.invalidReasons = [];
 
             if (ct.turn_index < firstOptionsIndex && b.behavior_name !== "Patient Education / Rationale") { 
-                // Allow Education to happen before Options are explicitly implied
                 b.isInvalid = true; b.invalidReasons.push("Pre-Options"); 
             }
             if (ct.turn_index > lastDecisionIndex && b.behavior_name !== "Patient Education / Rationale") { 
@@ -479,17 +490,34 @@ function buildDecisionTree(regions) {
     return roots;
 }
 
+async function callGemini(key, systemPrompt, schema, userContent) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent?key=${key}`;
+    const payload = {
+        system_instruction: { parts: [{ text: "You are a clinical coding expert." }] },
+        contents: [{ parts: [{ text: `${systemPrompt}\n\n${userContent}` }] }],
+        generationConfig: { response_mime_type: "application/json", response_schema: schema, temperature: 0 }
+    };
+
+    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    if (!res.ok) throw new Error(await res.text());
+    
+    const data = await res.json();
+    const rawString = data.candidates[0].content.parts[0].text.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
+    return JSON.parse(rawString);
+}
+
+// --- RUN PIPELINE & SAVE ---
 async function runAnalysis() {
     const fileInput = document.getElementById('fileInput');
     const apiKey = document.getElementById('apiKey').value;
     const loader = document.getElementById('loader');
-    const results = document.getElementById('results');
     const errBox = document.getElementById('errorMsg');
     
-    errBox.innerText = ""; results.innerHTML = ""; document.getElementById('statusLog').innerHTML = "";
+    errBox.innerText = ""; document.getElementById('statusLog').innerHTML = "";
     if (!apiKey) { errBox.innerText = "API Key required"; return; }
     if (!fileInput.files.length) { errBox.innerText = "File required"; return; }
 
+    localStorage.setItem('gemini_api_key', apiKey);
     loader.style.display = "block";
     const file = fileInput.files[0];
     const reader = new FileReader();
@@ -500,7 +528,7 @@ async function runAnalysis() {
             const turns = parseTranscriptToTurns(rawText);
             const fullTranscriptText = turns.map(t => `[TURN ${t.index}] ${t.speaker_line}\n${t.text_lines.join('\n')}\n`).join('\n');
 
-            logStatus("Step 1/3: Running Broad Segmentation (Identifying Tree)...");
+            logStatus("Step 1/3: Running Broad Segmentation...");
             const broadData = await callGemini(apiKey, BROAD_SEGMENTATION_PROMPT, BROAD_SEGMENTATION_SCHEMA, fullTranscriptText);
             const decisions = broadData.decisions || [];
             
@@ -541,9 +569,24 @@ async function runAnalysis() {
                 finalRegions.push(finalReg);
             }
 
-            logStatus("Analysis Complete. Building unified tree and rendering UI...");
+            logStatus("Analysis Complete. Saving results to Local Database...");
+            
+            await fetch('/api/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    filename: file.name,
+                    raw_text: rawText,
+                    turns: turns,
+                    regions: finalRegions
+                })
+            });
+
+            logStatus("Saved successfully. Building UI...");
+            
             const treeRoots = buildDecisionTree(finalRegions);
             renderUI(finalRegions, treeRoots, turns);
+            switchTab('results');
 
         } catch (error) {
             console.error(error);
@@ -555,42 +598,15 @@ async function runAnalysis() {
     reader.readAsText(file);
 }
 
-async function callGemini(key, systemPrompt, schema, userContent) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent?key=${key}`;
-    const payload = {
-        system_instruction: { parts: [{ text: "You are a clinical coding expert." }] },
-        contents: [{ parts: [{ text: `${systemPrompt}\n\n${userContent}` }] }],
-        generationConfig: { 
-            response_mime_type: "application/json", 
-            response_schema: schema,
-            temperature: 0
-        }
-    };
-
-    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-    if (!res.ok) throw new Error(await res.text());
-    
-    const data = await res.json();
-    const rawString = data.candidates[0].content.parts[0].text.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
-    return JSON.parse(rawString);
-}
-
-/**
- * ============================================================
- *  UI RENDERING
- * ============================================================
- */
+// --- UI RENDERING (Updated for v0.9) ---
 
 function renderTreeNode(node) {
     const sdmBadge = node.is_sdm_decision 
-            ? `<span class="badge sdm-badge-yes">✓ True SDM</span>`
-            : `<span class="badge sdm-badge-no">✗ Not SDM</span>`;
+        ? `<span class="badge sdm-badge-yes">✓ True SDM</span>`
+        : `<span class="badge sdm-badge-no">✗ Not SDM</span>`;
             
-    const firstTurnIndex = (node.relevant_turn_indices && node.relevant_turn_indices.length > 0) 
-        ? node.relevant_turn_indices[0] 
-        : null;
+    const firstTurnIndex = (node.relevant_turn_indices && node.relevant_turn_indices.length > 0) ? node.relevant_turn_indices[0] : null;
 
-    // Build Options
     const optionsHtml = (node.options_discussed || []).map(o => {
         const contemp = o.is_contemporaneous === false ? ' <span style="color:#e67e22;font-size:0.8rem;">(Future/Contingent)</span>' : '';
         const undesirable = o.is_undesirable === true ? ' <span style="color:#e74c3c;font-size:0.8rem; font-weight:bold;">[Non-Viable/Undesirable]</span>' : '';
@@ -603,7 +619,6 @@ function renderTreeNode(node) {
         return `<li>${labelHtml} <span style="color:#7f8fa6;font-size:0.8rem;">(ID: ${o.option_id})</span>${contemp}${undesirable}</li>`;
     }).join('');
     
-    // Build Behaviors
     let behaviorsHtml = '';
     if (node.classified_turns) {
         node.classified_turns.forEach(ct => {
@@ -618,7 +633,6 @@ function renderTreeNode(node) {
                         optionLabelTag = `<span class="mapped-option-tag" title="Mapped to: ${matchedOpt.label}">→ ${matchedOpt.label}</span>`;
                     }
                 }
-
                 behaviorsHtml += `<div class="behavior-pill ${invalidClass}" title="Click to jump to Turn ${ct.turn_index} | ${title}" onclick="scrollToTurn(${ct.turn_index})">
                     <span style="font-weight:bold; color: ${node.colorTheme.tag}">T${ct.turn_index}</span> 
                     ${b.behavior_name}
@@ -632,38 +646,21 @@ function renderTreeNode(node) {
     <div class="decision-card" style="border-left-color: ${node.colorTheme.border}; opacity: 1;">
         <div class="card-header" ${firstTurnIndex !== null ? `onclick="scrollToTurn(${firstTurnIndex})" title="Click to jump to start of decision (Turn ${firstTurnIndex})"` : ''}>
             <h4>[${node.problem_area}] ${node.summary}</h4>
-            <div>
-                ${sdmBadge}
-                <span class="badge" style="background: ${node.colorTheme.bg}; color: ${node.colorTheme.tag}; border: 1px solid ${node.colorTheme.border}">${node.decision_type || 'Clinical'}</span>
-            </div>
+            <div>${sdmBadge}<span class="badge" style="background: ${node.colorTheme.bg}; color: ${node.colorTheme.tag}; border: 1px solid ${node.colorTheme.border}">${node.decision_type || 'Clinical'}</span></div>
         </div>
-        
         <div style="font-size:0.85rem; color:#7f8fa6; margin-bottom:10px;">
             <strong>Broad Bounds:</strong> [${node.broad_start_turn_index}, ${node.broad_end_turn_index}] &nbsp;|&nbsp; 
             <strong>Filtered Turns:</strong> [${node.relevant_turn_indices.join(', ')}]
         </div>
-        
         <div style="font-size:0.9rem; color:#555; margin-bottom:15px; border-left: 3px solid #eee; padding-left: 10px;">
             <em>${node.rationale || node.sdm_rationale || node.boundary_rationale || 'No rationale provided.'}</em>
         </div>
-
-        <div class="map-options">
-            <strong style="font-size: 0.9rem;">Options Considered:</strong>
-            <ul style="margin: 5px 0 0 0; padding-left: 20px; font-size: 0.9rem;">${optionsHtml || '<li>No active options discussed.</li>'}</ul>
-        </div>
-        
-        <div style="margin-top:15px;">
-            <strong style="font-size: 0.9rem;">Mapped Behaviors:</strong>
-            <div class="map-behaviors" style="margin-top:8px;">
-                ${behaviorsHtml || '<span style="color:#999; font-size:0.9rem;">No behaviors detected.</span>'}
-            </div>
-        </div>`;
+        <div class="map-options"><strong style="font-size: 0.9rem;">Options Considered:</strong><ul style="margin: 5px 0 0 0; padding-left: 20px; font-size: 0.9rem;">${optionsHtml || '<li>No active options discussed.</li>'}</ul></div>
+        <div style="margin-top:15px;"><strong style="font-size: 0.9rem;">Mapped Behaviors:</strong><div class="map-behaviors" style="margin-top:8px;">${behaviorsHtml || '<span style="color:#999; font-size:0.9rem;">No behaviors detected.</span>'}</div></div>`;
         
     if (node.children && node.children.length > 0) {
         html += `<div class="tree-children">`;
-        node.children.forEach(child => {
-            html += renderTreeNode(child);
-        });
+        node.children.forEach(child => { html += renderTreeNode(child); });
         html += `</div>`;
     }
     
@@ -672,29 +669,19 @@ function renderTreeNode(node) {
 }
 
 function renderUI(regions, treeRoots, turns) {
-    const results = document.getElementById('results');
-    
-    let html = `<h2>Unified Decision Dashboard</h2>`;
-    html += `<div class="tree-container">`;
-    treeRoots.forEach(root => {
-        html += renderTreeNode(root);
-    });
-    html += `</div>`;
-
-    html += `<h2>Global Transcript</h2>`;
-    html += `<div class="global-transcript">`;
+    const results = document.getElementById('resultsContent');
+    let html = `<h2>Unified Decision Dashboard</h2><div class="tree-container">`;
+    treeRoots.forEach(root => { html += renderTreeNode(root); });
+    html += `</div><h2>Global Transcript</h2><div class="global-transcript">`;
 
     turns.forEach((turn) => {
         const activeRegions = regions.filter(r => r.relevant_turn_indices.includes(turn.index));
-        
         const turnTags = [];
         activeRegions.forEach(r => {
             if(r.classified_turns) {
                 const mapped = r.classified_turns.find(ct => ct.turn_index === turn.index);
                 if (mapped) {
-                    mapped.behaviors.forEach(b => {
-                        turnTags.push({ text: b.behavior_name, color: r.colorTheme.tag, invalid: b.isInvalid });
-                    });
+                    mapped.behaviors.forEach(b => { turnTags.push({ text: b.behavior_name, color: r.colorTheme.tag, invalid: b.isInvalid }); });
                 }
             }
         });
@@ -707,29 +694,17 @@ function renderUI(regions, treeRoots, turns) {
             turnBorder = activeRegions[0].colorTheme.border;
         } else if (activeRegions.length > 1) {
             const colors = activeRegions.map(r => r.colorTheme.bg);
-            const stripeWidth = 15; 
-            const gradientStops = colors.map((color, idx) => 
-                `${color} ${idx * stripeWidth}px, ${color} ${(idx + 1) * stripeWidth}px`
-            ).join(', ');
-            
+            const gradientStops = colors.map((color, idx) => `${color} ${idx * 15}px, ${color} ${(idx + 1) * 15}px`).join(', ');
             turnBg = `repeating-linear-gradient(45deg, ${gradientStops})`;
             turnBorder = '#2f3640'; 
         }
 
-        const tagsHtml = turnTags.map(t => 
-            `<span class="text-tag" style="background:${t.color}; ${t.invalid ? 'text-decoration:line-through; opacity:0.5;' : ''}">${t.text}</span>`
-        ).join('');
+        const tagsHtml = turnTags.map(t => `<span class="text-tag" style="background:${t.color}; ${t.invalid ? 'text-decoration:line-through; opacity:0.5;' : ''}">${t.text}</span>`).join('');
 
         html += `
         <div id="turn-${turn.index}" class="turn-container" style="background: ${turnBg}; border-left-color: ${turnBorder};">
-            <div class="turn-meta">
-                <div>[TURN ${turn.index}]</div>
-                <div style="color:#2f3640;">${turn.speaker_line}</div>
-            </div>
-            <div class="turn-content">
-                ${tagsHtml.length > 0 ? `<div class="turn-tags">${tagsHtml}</div>` : ''}
-                ${turn.text_lines.join('\n')}
-            </div>
+            <div class="turn-meta"><div>[TURN ${turn.index}]</div><div style="color:#2f3640;">${turn.speaker_line}</div></div>
+            <div class="turn-content">${tagsHtml.length > 0 ? `<div class="turn-tags">${tagsHtml}</div>` : ''}${turn.text_lines.join('\n')}</div>
         </div>`;
     });
 
