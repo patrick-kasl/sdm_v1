@@ -3,13 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CCQ Pipeline v1.1 - AHRQ Informed Consent & Risk Analyzer</title>
+    <title>CCQ Pipeline v1.7 - Core/Relevant, Jargon, & Auto-Detect (Fixed)</title>
     <style>
         :root {
             --primary: #2c3e50;
             --secondary: #2980b9;
             --danger: #c0392b;
             --success: #27ae60;
+            --warning: #f39c12;
             --bg: #f5f6fa;
             --text: #2f3640;
             --border: #dcdde1;
@@ -55,7 +56,7 @@
 
         /* SETUP BOX */
         .setup-box { background: #f1f2f6; padding: 20px; border-radius: 8px; margin-bottom: 30px; border: 1px solid #dfe4ea; }
-        input[type="text"], input[type="file"] { width: 100%; padding: 10px; margin: 5px 0 15px 0; border-radius: 4px; border: 1px solid #ccc; box-sizing: border-box; }
+        input[type="text"], input[type="file"], select { width: 100%; padding: 10px; margin: 5px 0 15px 0; border-radius: 4px; border: 1px solid #ccc; box-sizing: border-box; font-family: inherit;}
         button.run-btn { background-color: var(--secondary); color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 1rem; font-weight: bold;}
         button.run-btn:hover { background-color: #1f6391; }
 
@@ -74,39 +75,40 @@
         .card-header h4 { margin: 0 0 8px 0; font-size: 1.25rem; }
         
         .badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; background: #eee; margin-right: 5px; }
-        .teachback-badge { background: #8e44ad; color: white; }
-        .checklist-badge { background: #34495e; color: white; }
-        .risk-badge { background: var(--danger); color: white; }
+        .risk-badge { background: var(--secondary); color: white; }
         
-        .tree-children { margin-left: 20px; border-left: 2px dashed #bdc3c7; padding-left: 20px; margin-top: 20px; padding-top: 10px; }
-
+        /* NEW BADGES */
+        .core-badge { background: #e74c3c; color: white; }
+        .relevant-badge { background: #7f8fa6; color: white; }
+        
         /* CARD DETAILS */
         .map-options { background: #f8f9fa; padding: 12px 15px; border-radius: 6px; margin-bottom: 15px; }
         
         /* RISK TABLE */
         .risk-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9rem; }
-        .risk-table th, .risk-table td { padding: 8px; text-align: left; border-bottom: 1px solid #dfe4ea; }
+        .risk-table th, .risk-table td { padding: 10px; text-align: left; border-bottom: 1px solid #dfe4ea; vertical-align: top; }
         .risk-table th { background: #e8ecf1; }
-        .detail-Low { color: #f39c12; font-weight: bold; }
-        .detail-Medium { color: #d35400; font-weight: bold; }
-        .detail-High { color: #c0392b; font-weight: bold; }
+        
+        .status-Covered { color: var(--success); font-weight: bold; }
+        .status-Partially { color: var(--warning); font-weight: bold; }
+        .status-Not { color: #95a5a6; font-style: italic; }
+        .encounter-badge { display: inline-block; padding: 3px 6px; background: #dfe6e9; border-radius: 4px; font-size: 0.75rem; font-weight: bold; color: var(--primary); margin-bottom: 2px; word-break: break-all;}
 
-        /* BEHAVIORS */
-        .map-behaviors { display: flex; flex-wrap: wrap; gap: 10px; }
-        .behavior-pill {
-            background: #e8ecf1; border: 1px solid #d1d8e0; border-radius: 20px;
-            padding: 5px 12px; font-size: 0.85rem; display: flex; align-items: center; gap: 8px;
-            cursor: pointer; transition: all 0.2s;
+        .turn-link {
+            display: inline-block; padding: 3px 8px; background: #e8ecf1; 
+            border: 1px solid #d1d8e0; border-radius: 4px; font-size: 0.8rem;
+            cursor: pointer; transition: all 0.2s; color: var(--primary);
+            margin: 2px; font-family: monospace; font-weight: bold;
         }
-        .behavior-pill:hover { transform: scale(1.03); box-shadow: 0 2px 5px rgba(0,0,0,0.1); background: #dcdde1; }
-        .behavior-pill.invalid { text-decoration: line-through; opacity: 0.5; }
-        .mapped-option-tag { font-size: 0.7rem; background: #fff; padding: 2px 6px; border-radius: 10px; border: 1px solid #dcdde1; color: #555; white-space: nowrap; text-overflow: ellipsis; max-width: 150px; overflow: hidden; }
+        .turn-link:hover { background: var(--secondary); color: white; transform: scale(1.05); }
 
         /* GLOBAL TRANSCRIPT */
         .global-transcript { background: #fff; border: 1px solid #dcdde1; border-radius: 8px; padding: 20px; }
         .turn-container { display: flex; margin-bottom: 10px; border-radius: 6px; border-left: 4px solid transparent; scroll-margin-top: 20px; }
         .turn-meta { width: 150px; flex-shrink: 0; padding: 10px; font-size: 0.8rem; font-weight: bold; color: #7f8fa6; text-align: right; border-right: 2px solid rgba(0,0,0,0.05); }
+        .encounter-label { font-size: 0.65rem; color: var(--secondary); margin-bottom: 4px; text-transform: uppercase; word-break: break-all;}
         .turn-content { flex-grow: 1; padding: 10px 15px; font-family: monospace; font-size: 0.95rem; line-height: 1.5; white-space: pre-wrap; }
+        
         .turn-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 5px; }
         .text-tag { font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; font-family: sans-serif; font-weight: bold; color: #fff; }
 
@@ -121,12 +123,13 @@
 <body>
 
 <div class="container">
-    <h1>AHRQ Informed Consent & Risk Analyzer (v1.1)</h1>
-    <p style="margin-top:-15px; color:#7f8fa6; font-size:0.9rem;">Compliant with AHRQ Informed Consent Toolkit (45 CFR 46.116, HIPAA, & Teach-Back Method)</p>
+    <h1>AHRQ Multi-Encounter Pipeline v1.7</h1>
+    <p style="margin-top:-15px; color:#7f8fa6; font-size:0.9rem;">Features: Core/Relevant Mapping, Jargon Scoring, Novel Risk Detection, Procedure Auto-Detect, Backend Persistence</p>
 
     <div class="nav-bar">
-        <button class="nav-btn active" id="btn-new" onclick="switchTab('new')">+ New Analysis</button>
+        <button class="nav-btn active" id="btn-new" onclick="switchTab('new')">Run Analysis</button>
         <button class="nav-btn" id="btn-history" onclick="switchTab('history')">Database History</button>
+        <button class="nav-btn" id="btn-results" onclick="switchTab('results')" style="display:none;">View Results</button>
     </div>
 
     <!-- VIEW: NEW ANALYSIS -->
@@ -134,9 +137,18 @@
         <div class="setup-box">
             <label><strong>1. Google Gemini API Key:</strong></label>
             <input type="text" id="apiKey" placeholder="AIzaSy...">
-            <label><strong>2. Transcript File (.txt):</strong></label>
-            <input type="file" id="fileInput" accept=".txt">
-            <button class="run-btn" onclick="runAnalysis()">Run AHRQ Consent Pipeline</button>
+            
+            <label><strong>2. Select Procedure:</strong></label>
+            <select id="procedureSelect">
+                <option value="AUTO">🤖 Auto-Detect Procedure from Transcript</option>
+                <option value="PROC-SPINE-01">PROC-SPINE-01: Lumbar decompression with possible fusion</option>
+                <option value="PROC-PSY-01">PROC-PSY-01: Electroconvulsive Therapy (ECT)</option>
+            </select>
+
+            <label><strong>3. Patient Encounter Transcripts (Upload multiple .txt files):</strong></label>
+            <input type="file" id="fileInput" accept=".txt" multiple>
+            
+            <button class="run-btn" onclick="runAnalysis()">Run Patient Timeline Pipeline</button>
             <div class="error" id="errorMsg"></div>
         </div>
         <div class="loading" id="loader">
@@ -149,7 +161,7 @@
         <div id="history-content">Loading history...</div>
     </div>
 
-    <!-- VIEW: RESULTS (Detail View) -->
+    <!-- VIEW: RESULTS -->
     <div id="view-results" class="view-section">
         <button class="nav-btn" style="margin-bottom: 20px;" onclick="switchTab('history')">← Back to History</button>
         <div id="resultsContent"></div>
@@ -157,6 +169,60 @@
 </div>
 
 <script>
+// --- INTERNAL TAXONOMY & COMPONENT DATABASE (Restored Full 13 Risks) ---
+const COMPONENTS_DB = {
+    "COMP-ANES-01": [
+        { risk_item: "General anesthesia complications", category: "Medication, anesthesia, sedation complication", importance: "Core", description: "General anesthesia carries risks including adverse drug reaction..." },
+        { risk_item: "Major medical complication (MI, stroke, pneumonia, sepsis)", category: "Cardiopulmonary or vascular complication", importance: "Core", description: "Serious cardiopulmonary events including myocardial infarction, stroke..." },
+        { risk_item: "Intraoperative blood loss requiring transfusion", category: "Bleeding, hemorrhage, or blood-loss complication", importance: "Relevant", description: "Significant blood loss during surgery may necessitate blood transfusion..." },
+        { risk_item: "Venous thromboembolism (DVT / PE)", category: "Cardiopulmonary or vascular complication", importance: "Relevant", description: "Blood clots may form in the legs (DVT) and travel to the lungs (PE)..." },
+        { risk_item: "Death", category: "Death, life-threatening outcome, or catastrophic harm", importance: "Core", description: "Death is a rare but recognized outcome of surgery..." }
+    ],
+    "COMP-SPIN-01": [
+        { risk_item: "Dural tear / CSF leak", category: "Tissue, organ, structural, or anatomic injury", importance: "Core", description: "Inadvertent tear of the dural membrane during decompression can cause cerebrospinal fluid leakage..." },
+        { risk_item: "Nerve root injury or new neurologic deficit", category: "Neurologic, cognitive, or sensory complication", importance: "Core", description: "Surgery may cause new or worsened radiculopathy, motor weakness..." },
+        { risk_item: "Cauda equina syndrome", category: "Neurologic, cognitive, or sensory complication", importance: "Core", description: "Rare compression or injury to the cauda equina can cause bowel/bladder dysfunction..." },
+        { risk_item: "Surgical site infection (superficial or deep)", category: "Infection, contamination, or transmissible exposure", importance: "Relevant", description: "Wound infection may require antibiotics and, if deep, surgical washout..." },
+        { risk_item: "Epidural hematoma", category: "Bleeding, hemorrhage, or blood-loss complication", importance: "Relevant", description: "Postoperative blood collection in the epidural space can compress neural structures..." },
+        { risk_item: "Failed back surgery syndrome / persistent symptoms", category: "Failure to achieve intended result", importance: "Core", description: "Pain, numbness, or functional limitation may persist or recur..." },
+        { risk_item: "Pseudarthrosis (nonunion)", category: "Device, implant, hardware, biologic, graft complication", importance: "Core", description: "Failure of the bone graft to fuse solidly can cause persistent pain..." },
+        { risk_item: "Hardware malposition, loosening, failure, or migration", category: "Device, implant, hardware, biologic, graft complication", importance: "Core", description: "Pedicle screws, rods, or cages may break, loosen, or migrate..." },
+        // Restored items:
+        { risk_item: "Adjacent segment disease", category: "Need for additional testing, treatment, or escalation of care", importance: "Relevant", description: "Accelerated degeneration of the disc levels above or below the fusion..." },
+        { risk_item: "Reoperation / revision surgery", category: "Need for additional testing, treatment, or escalation of care", importance: "Core", description: "Additional surgery may be needed for recurrent stenosis, instability..." },
+        { risk_item: "Functional limitation and prolonged recovery", category: "Functional limitation, disability, recovery burden", importance: "Relevant", description: "Recovery may involve weeks to months of activity restriction..." },
+        { risk_item: "Bone graft donor site pain or complication", category: "Pain, discomfort, symptom worsening", importance: "Relevant", description: "If autologous iliac crest bone graft is harvested, the donor site may cause persistent pain..." },
+        { risk_item: "Wound healing problems or scarring", category: "Scarring, cosmetic change, or body-image impact", importance: "Relevant", description: "Surgical incision may result in visible scarring, wound dehiscence..." }
+    ],
+    "COMP-PSY-01": [
+        { risk_item: "Short-term memory loss / Cognitive changes", category: "Neurologic, cognitive, or sensory complication", importance: "Core", description: "Temporary loss of memories surrounding the time of the treatment." },
+        { risk_item: "Muscle soreness", category: "Pain, discomfort, symptom worsening", importance: "Relevant", description: "Mild muscle aches following the procedure due to induced contractions." }
+    ]
+};
+
+const PROCEDURES_DB = {
+    "PROC-SPINE-01": {
+        name: "Lumbar decompression with possible fusion",
+        components: ["COMP-ANES-01", "COMP-SPIN-01"] 
+    },
+    "PROC-PSY-01": {
+        name: "Electroconvulsive Therapy (ECT)",
+        components: ["COMP-ANES-01", "COMP-PSY-01"]  
+    }
+};
+
+function buildOntologyForProcedure(procedureID) {
+    const proc = PROCEDURES_DB[procedureID];
+    if(!proc) return [];
+    let combinedRisks = [];
+    proc.components.forEach(compId => {
+        if(COMPONENTS_DB[compId]) {
+            combinedRisks.push(...COMPONENTS_DB[compId]);
+        }
+    });
+    return combinedRisks;
+}
+
 // --- STATE MANAGEMENT ---
 document.addEventListener('DOMContentLoaded', () => {
     const savedKey = localStorage.getItem('gemini_api_key');
@@ -164,25 +230,17 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function switchTab(tab) {
-    document.getElementById('view-new').classList.remove('active');
-    document.getElementById('view-history').classList.remove('active');
-    document.getElementById('view-results').classList.remove('active');
-    document.getElementById('btn-new').classList.remove('active');
-    document.getElementById('btn-history').classList.remove('active');
+    document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
 
-    if(tab === 'new') {
-        document.getElementById('view-new').classList.add('active');
-        document.getElementById('btn-new').classList.add('active');
-    } else if(tab === 'history') {
-        document.getElementById('view-history').classList.add('active');
-        document.getElementById('btn-history').classList.add('active');
-        loadHistory();
-    } else if(tab === 'results') {
-        document.getElementById('view-results').classList.add('active');
-    }
+    document.getElementById(`view-${tab}`).classList.add('active');
+    const btn = document.getElementById(`btn-${tab}`);
+    if (btn) btn.classList.add('active');
+
+    if (tab === 'history') loadHistory();
 }
 
-// --- DATABASE FETCHING ---
+// --- DATABASE FETCHING (RESTORED) ---
 async function loadHistory() {
     const container = document.getElementById('history-content');
     container.innerHTML = "Loading database...";
@@ -195,39 +253,41 @@ async function loadHistory() {
             return;
         }
 
-        let html = `<table class="history-table"><thead><tr><th>ID</th><th>Transcript Name</th><th>Run Date</th><th>Action</th></tr></thead><tbody>`;
+        let html = `<table class="history-table"><thead><tr><th>ID</th><th>Encounters Merged</th><th>Run Date</th><th>Action</th></tr></thead><tbody>`;
         data.forEach(row => {
             html += `<tr onclick="loadRun(${row.id})"><td>#${row.id}</td><td><strong>${row.filename}</strong></td><td>${row.run_date}</td><td class="view-link">View Pipeline →</td></tr>`;
         });
         html += `</tbody></table>`;
         container.innerHTML = html;
     } catch (e) {
-        container.innerHTML = `<span class="error">Failed to load history: ${e.message}</span>`;
+        container.innerHTML = `<span class="error">Failed to load history (Ensure backend is running): ${e.message}</span>`;
     }
 }
 
 async function loadRun(id) {
     document.getElementById('resultsContent').innerHTML = "<p>Loading layout...</p>";
+    document.getElementById('btn-results').style.display = 'inline-block';
     switchTab('results');
     try {
         const res = await fetch(`/api/run/${id}`);
         const data = await res.json();
-        const treeRoots = buildDecisionTree(data.regions);
-        renderUI(data.regions, treeRoots, data.turns);
+        renderUI(data.regions, data.turns);
     } catch (e) {
         document.getElementById('resultsContent').innerHTML = `<span class="error">Failed to load run data: ${e.message}</span>`;
     }
 }
 
-// --- PROMPTS & SCHEMAS (AHRQ Compliant) ---
+// --- PROMPTS & SCHEMAS ---
+
+const AUTO_DETECT_SCHEMA = {
+    "type": "object",
+    "properties": { "detected_procedure_id": { "type": "string" } },
+    "required": ["detected_procedure_id"]
+};
 
 const BROAD_SEGMENTATION_PROMPT = `
-You are an expert clinical conversation analyst focusing on AHRQ-compliant Informed Consent. Your ONLY goal is to EXTRACT the broad conversational boundaries of proposed research studies, clinical trials, medications, or procedures where consent is being obtained or discussed.
-
-CRITICAL INSTRUCTIONS:
-1. FUNDAMENTAL UNIT = PROPOSED STUDY OR TREATMENT: Identify the specific study, protocol, or intervention being proposed.
-2. HIERARCHY: Identify dependent/contingent discussions (e.g., Blood draw consent inside a larger Clinical Trial consent).
-3. BROAD BOUNDARIES: Capture from the VERY FIRST mention of the study/treatment to the VERY LAST related discussion or patient decision. Overlapping turn indices are expected.
+You are extracting the broad conversational boundaries of proposed procedures where consent is being obtained within this specific transcript.
+Extract the broad boundaries (start and end turns) of the discussion.
 `;
 
 const BROAD_SEGMENTATION_SCHEMA = {
@@ -239,66 +299,47 @@ const BROAD_SEGMENTATION_SCHEMA = {
         "type": "object",
         "properties": {
           "id": { "type": "string" },
-          "parent_decision_id": { "type": "string", "description": "ID of parent, or 'none' if root" },
-          "problem_area": { "type": "string", "description": "The specific study or procedure proposed" },
+          "problem_area": { "type": "string" },
           "summary": { "type": "string" },
-          "decision_type": { "type": "string", "enum": ["Research Study / Trial", "Clinical Procedure", "Medication"] },
-          "boundary_rationale": { "type": "string" },
+          "decision_type": { "type": "string" },
           "broad_start_turn_index": { "type": "integer" },
           "broad_end_turn_index": { "type": "integer" }
         },
-        "required": ["id", "parent_decision_id", "problem_area", "summary", "decision_type", "boundary_rationale", "broad_start_turn_index", "broad_end_turn_index"]
+        "required": ["id", "problem_area", "summary", "decision_type", "broad_start_turn_index", "broad_end_turn_index"]
       }
     }
   }
 };
 
 const RELEVANCE_FILTERING_PROMPT = `
-You are an expert clinical data parser. You will be provided with a proposed "Study/Treatment" and a chunk of a transcript.
-Your ONLY task is to identify the exact turn indices that are RELEVANT to the discussion of this specific study, its risks, benefits, privacy, voluntariness, and consent process.
-
-CRITICAL INSTRUCTIONS:
-1. STRIP THE HAYSTACK: Remove small talk or purely administrative check-in chat.
-2. KEEP CONTEXT: Keep turns that provide necessary context for the consent discussion.
-3. OUTPUT: Provide an array of strictly the integer turn numbers that form the cohesive discussion for this study.
+Identify the exact turn indices that are RELEVANT to the discussion of the procedure and its risks. Output an array of integers.
 `;
 
 const RELEVANCE_FILTERING_SCHEMA = {
   "type": "object",
-  "properties": {
-    "decision_id": { "type": "string" },
-    "relevant_turn_indices": { "type": "array", "items": { "type": "integer" } }
-  },
-  "required": ["decision_id", "relevant_turn_indices"]
+  "properties": { "relevant_turn_indices": { "type": "array", "items": { "type": "integer" } } },
+  "required": ["relevant_turn_indices"]
 };
 
-const CLASSIFICATION_PROMPT_TEMPLATE = `
-You are analyzing a filtered segment of a clinical transcript to extract the elements of AHRQ-compliant Informed Consent (based on 45 CFR 46.116 and HIPAA).
+function getClassificationPrompt(ontologyText, procedureName, fileName) {
+    return `
+    You are evaluating a single transcript ("${fileName}") which is part of a patient's timeline for the procedure "${procedureName}".
+    You must extract the standard AHRQ Consent Elements AND evaluate this specific transcript against the expected risk ontology.
 
-CRITICAL INSTRUCTIONS - AHRQ CONSENT ELEMENTS:
-Assess whether the 5 core AHRQ/Regulatory elements of informed consent are present:
-1. Purpose & Procedures: Is the goal of the study and what will happen explained?
-2. Risks & Discomforts: Are foreseeable risks or discomforts explicitly stated?
-3. Benefits & Compensation: Are benefits (or lack thereof) and compensation stated?
-4. Voluntariness & Withdrawal: Is it stated that participation is voluntary and they can quit without penalty?
-5. Privacy & Confidentiality (HIPAA): Is it explained who will see their data and how it is protected?
+    --- EXPECTED COMPONENT RISK ONTOLOGY ---
+    ${ontologyText}
+    ----------------------------------------
 
-CRITICAL INSTRUCTIONS - TEACH-BACK METHOD (AHRQ pg 8-9):
-AHRQ strictly requires assessing comprehension using the "Teach-Back" method, NOT just asking "Do you understand?".
-- 'teach_back_used' is TRUE ONLY IF the researcher asks open-ended questions like "Tell me in your own words...", "What do you expect to gain...", "What risks would you be taking...". 
-- Asking "Do you have any questions?" is NOT teach-back.
-
-CRITICAL INSTRUCTIONS - RISK & DISCOMFORT EXTRACTION:
-Extract EVERY individual risk or discomfort mentioned into the \`risks_discussed\` array.
-For each:
-- 'risk_name': Short name (e.g., "Sadness", "Loss of Privacy", "Bleeding").
-- 'clinician_description': Exactly how the researcher described it.
-- 'detail_level': "Low" (Named only), "Medium" (Explained slightly), "High" (Detailed explanation).
-- 'is_probability_mentioned': True if a statistic or likelihood is provided.
-
-BEHAVIOR MAPPING:
-Map turns to the specific consent behaviors provided in the schema enum. Note: "Inviting Questions (Open-ended)" means asking "What questions do you have?" rather than "Do you have questions?".
-`;
+    CRITICAL INSTRUCTIONS:
+    1. For EVERY risk in the ontology above, determine if the clinician mentioned it in THIS transcript.
+       - Status MUST be exactly "Covered" (explicitly explained), "Partially Covered" (briefly mentioned), or "Not Mentioned".
+       - Level of Detail: Explain how the provider described it.
+       - Jargon Level: Rate the terminology used by the provider for this risk as "Low (Layman)", "Medium", or "High (Clinical/Heavy)". Use "N/A" if Not Mentioned.
+       - Quote: Extract the EXACT quote. Put "N/A" if Not Mentioned.
+       - Turn Indices: Provide an array of the exact integer turn numbers where this risk was discussed.
+    2. Identify any ADDITIONAL risks discussed by the clinician that are NOT listed in the ontology above.
+    `;
+}
 
 const CLASSIFICATION_SCHEMA = {
   "type": "object",
@@ -311,68 +352,42 @@ const CLASSIFICATION_SCHEMA = {
         "benefits_compensation_explained": { "type": "boolean" },
         "voluntariness_withdrawal_explained": { "type": "boolean" },
         "privacy_confidentiality_explained": { "type": "boolean" },
-        "teach_back_used": { "type": "boolean", "description": "True ONLY if open-ended teach-back comprehension checks were used." }
+        "teach_back_used": { "type": "boolean" }
       },
       "required": ["purpose_procedures_explained", "risks_discomforts_explained", "benefits_compensation_explained", "voluntariness_withdrawal_explained", "privacy_confidentiality_explained", "teach_back_used"]
     },
-    "risks_discussed": {
+    "ontology_risk_assessment": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "risk_item": { "type": "string" },
+          "status": { "type": "string", "enum": ["Covered", "Partially Covered", "Not Mentioned"] },
+          "level_of_detail": { "type": "string" },
+          "jargon_level": { "type": "string", "enum": ["Low (Layman)", "Medium", "High (Clinical/Heavy)", "N/A"] },
+          "quote": { "type": "string" },
+          "turn_indices": { "type": "array", "items": { "type": "integer" } }
+        },
+        "required":["risk_item", "status", "level_of_detail", "jargon_level", "quote", "turn_indices"]
+      }
+    },
+    "additional_risks_discussed": {
       "type": "array",
       "items": {
         "type": "object",
         "properties": {
           "risk_name": { "type": "string" },
-          "clinician_description": { "type": "string" },
-          "detail_level": { "type": "string", "enum": ["Low", "Medium", "High"] },
-          "is_probability_mentioned": { "type": "boolean" },
+          "quote": { "type": "string" },
           "turn_indices": { "type": "array", "items": { "type": "integer" } }
         },
-        "required":["risk_name", "clinician_description", "detail_level", "is_probability_mentioned", "turn_indices"]
-      }
-    },
-    "classified_turns": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "turn_index": { "type": "integer" },
-          "behaviors": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "behavior_name": {
-                  "type": "string",
-                  "enum":[
-                    "Discussing Purpose & Procedures", 
-                    "Discussing Risks & Discomforts",
-                    "Discussing Benefits & Compensation", 
-                    "Discussing Voluntariness & Withdrawal",
-                    "Discussing Privacy & Confidentiality", 
-                    "Executing Teach-Back / Checking Comprehension",
-                    "Inviting Questions (Open-ended)",
-                    "Subject Consent/Refusal Stated"
-                  ]
-                },
-                "related_risk_name": { "type": "string", "nullable": true },
-                "confidence_score": { "type": "integer", "minimum": 0, "maximum": 100 }
-              },
-              "required":["behavior_name", "confidence_score"]
-            }
-          }
-        },
-        "required":["turn_index", "behaviors"]
+        "required": ["risk_name", "quote", "turn_indices"]
       }
     }
   }
 };
 
 const REGION_COLORS = [
-    { bg: '#e8f4f8', border: '#3498db', tag: '#2980b9' }, 
-    { bg: '#f9f0e6', border: '#e67e22', tag: '#d35400' }, 
-    { bg: '#eef8e8', border: '#2ecc71', tag: '#27ae60' }, 
-    { bg: '#f4e8f8', border: '#9b59b6', tag: '#8e44ad' }, 
-    { bg: '#fdf0f0', border: '#e74c3c', tag: '#c0392b' }, 
-    { bg: '#fcf8e3', border: '#f1c40f', tag: '#f39c12' }  
+    { bg: '#e8f4f8', border: '#3498db', tag: '#2980b9' }
 ];
 
 function logStatus(msg) {
@@ -386,337 +401,450 @@ function scrollToTurn(turnIndex) {
     if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         el.classList.remove('flash-turn');
-        void el.offsetWidth;
+        void el.offsetWidth; 
         el.classList.add('flash-turn');
     }
 }
 
-function parseTranscriptToTurns(rawText) {
-    const lines = rawText.split('\n');
-    const turns = [];
-    let currentTurn = null;
-
-    // Matches "Speaker: Message" pattern robustly
-    const speakerColonRegex = /^([A-Za-z\s\.\-\d]+):\s*(.*)$/;
+function parseMultipleTranscriptsToTurns(fileDataArray) {
+    const globalTurns = [];
+    let globalIndex = 0;
     
-    // Matches standalone speaker labels without colons (Fallback)
-    const standaloneSpeakerRegex = /^(?:(?:FIRST|SECOND|THIRD)\s+)?(?:DOCTOR|PATIENT|CLINICIAN|PROVIDER|MOM|DAD|FAMILY|PHARMACIST|NURSE|SURGEON|PHYSICIAN|RESEARCHER|COORD)\b/i;
+    fileDataArray.forEach((fileObj) => {
+        const lines = fileObj.text.split('\n');
+        let currentTurn = null;
+        const speakerColonRegex = /^([A-Za-z\s\.\-\d]+):\s*(.*)$/;
 
-    lines.forEach((line) => {
-        const clean = line.trim();
-        if (!clean) return;
+        lines.forEach((line) => {
+            const clean = line.trim();
+            if (!clean) return;
 
-        const colonMatch = clean.match(speakerColonRegex);
-        
-        // 1. Check for "Speaker: Message" pattern (e.g. "Surgeon: Hi, Ms. Reynolds")
-        if (colonMatch && colonMatch[1].length < 30 && !["NOTE", "TIME", "DATE", "SUBJECT"].includes(colonMatch[1].toUpperCase())) {
-            if (currentTurn) turns.push(currentTurn);
-            currentTurn = { 
-                index: turns.length, 
-                speaker_line: colonMatch[1].toUpperCase(), 
-                text_lines: colonMatch[2] ? [colonMatch[2]] : [] 
-            };
-        } 
-        // 2. Check for standalone speaker label (e.g. "PATIENT")
-        else if (standaloneSpeakerRegex.test(clean) && clean.length < 50 && !clean.includes(':')) { 
-            if (currentTurn) turns.push(currentTurn);
-            currentTurn = { 
-                index: turns.length, 
-                speaker_line: clean.toUpperCase(), 
-                text_lines: [] 
-            };
-        } 
-        // 3. Otherwise, append text to current turn
-        else {
-            if (currentTurn) {
-                currentTurn.text_lines.push(clean);
+            const colonMatch = clean.match(speakerColonRegex);
+            if (colonMatch && colonMatch[1].length < 30) {
+                if (currentTurn) globalTurns.push(currentTurn);
+                currentTurn = { 
+                    index: globalIndex++, 
+                    encounter: fileObj.name, 
+                    speaker_line: colonMatch[1].toUpperCase(), 
+                    text_lines: [colonMatch[2] ? colonMatch[2] : []] 
+                };
             } else {
-                currentTurn = { index: 0, speaker_line: "METADATA", text_lines: [clean] };
+                if (currentTurn) {
+                    currentTurn.text_lines.push(clean);
+                } else {
+                    currentTurn = { 
+                        index: globalIndex++, 
+                        encounter: fileObj.name, 
+                        speaker_line: "METADATA", 
+                        text_lines: [clean] 
+                    };
+                }
             }
-        }
+        });
+        if (currentTurn) globalTurns.push(currentTurn);
     });
-    
-    if (currentTurn) turns.push(currentTurn);
-    return turns;
-}
-
-function buildDecisionTree(regions) {
-    const map = {};
-    const roots = [];
-    
-    regions.forEach((r, i) => { 
-        r.children = []; 
-        r.colorTheme = REGION_COLORS[i % REGION_COLORS.length]; 
-        map[r.id] = r; 
-    });
-    
-    regions.forEach(r => {
-        if (r.parent_decision_id && r.parent_decision_id !== 'none' && map[r.parent_decision_id]) {
-            map[r.parent_decision_id].children.push(r);
-        } else {
-            roots.push(r);
-        }
-    });
-
-    return roots;
+    return globalTurns;
 }
 
 async function callGemini(key, systemPrompt, schema, userContent) {
+    // RESTORED: gemini-3.1-pro-preview endpoint
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent?key=${key}`;
     const payload = {
         system_instruction: { parts: [{ text: "You are a clinical research compliance expert focusing on AHRQ Informed Consent." }] },
         contents: [{ parts: [{ text: `${systemPrompt}\n\n${userContent}` }] }],
-        generationConfig: { response_mime_type: "application/json", response_schema: schema, temperature: 0 }
+        generationConfig: { response_mime_type: "application/json", response_schema: schema, temperature: 0.1 }
     };
 
     const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     if (!res.ok) throw new Error(await res.text());
     
     const data = await res.json();
-    const rawString = data.candidates[0].content.parts[0].text.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
+    const rawString = data.candidates[0].content.parts[0].text;
     return JSON.parse(rawString);
 }
 
-// --- RUN PIPELINE & SAVE ---
+// --- RUN PIPELINE ---
 async function runAnalysis() {
     const fileInput = document.getElementById('fileInput');
     const apiKey = document.getElementById('apiKey').value;
+    let procId = document.getElementById('procedureSelect').value;
     const loader = document.getElementById('loader');
     const errBox = document.getElementById('errorMsg');
     
     errBox.innerText = ""; document.getElementById('statusLog').innerHTML = "";
     if (!apiKey) { errBox.innerText = "API Key required"; return; }
-    if (!fileInput.files.length) { errBox.innerText = "File required"; return; }
+    if (!fileInput.files.length) { errBox.innerText = "At least one transcript file required"; return; }
 
     localStorage.setItem('gemini_api_key', apiKey);
     loader.style.display = "block";
-    const file = fileInput.files[0];
-    const reader = new FileReader();
+    
+    try {
+        const files = Array.from(fileInput.files);
+        const fileDataArray = [];
+        for (let f of files) {
+            const text = await f.text();
+            fileDataArray.push({ name: f.name, text: text });
+        }
+        
+        logStatus(`Extracted ${files.length} encounter(s). Building global timeline...`);
+        const globalTurns = parseMultipleTranscriptsToTurns(fileDataArray);
+        
+        // AUTO-DETECT LOGIC
+        let autoDetectWarningMsg = null;
+        if(procId === "AUTO") {
+            logStatus("Step 0: Auto-detecting procedure from transcript early context...");
+            // Analyzes the first 40 turns to detect procedure
+            const sampleText = globalTurns.slice(0, 40).map(t => `[${t.speaker_line}] ${t.text_lines.join(' ')}`).join('\n');
+            const procMapping = Object.keys(PROCEDURES_DB).map(k => `- ${k}: ${PROCEDURES_DB[k].name}`).join('\n');
+            
+            const autoPrompt = `Analyze the early turns of this transcript and determine which procedure is being discussed. Choose ONLY from the provided IDs.\n\nOptions:\n${procMapping}\n\nTranscript Snippet:\n${sampleText}`;
+            
+            const autoData = await callGemini(apiKey, autoPrompt, AUTO_DETECT_SCHEMA, "Determine the ID.");
+            procId = autoData.detected_procedure_id;
+            
+            if(!PROCEDURES_DB[procId]) {
+                 autoDetectWarningMsg = `⚠️ Auto-Detect failed. LLM returned unrecognized ID: "${procId}". The system has defaulted to evaluating against PROC-SPINE-01. Please verify if this ontology is correct.`;
+                 logStatus(autoDetectWarningMsg);
+                 procId = "PROC-SPINE-01";
+            } else {
+                 logStatus(`SUCCESS: Auto-detected procedure: ${PROCEDURES_DB[procId].name}`);
+            }
+        }
 
-    reader.onload = async (e) => {
-        try {
-            const rawText = e.target.result;
-            const turns = parseTranscriptToTurns(rawText);
-            const fullTranscriptText = turns.map(t => `[TURN ${t.index}] ${t.speaker_line}\n${t.text_lines.join('\n')}\n`).join('\n');
+        const procDetails = PROCEDURES_DB[procId];
+        const ontologyObj = buildOntologyForProcedure(procId);
+        
+        const ontologyText = ontologyObj.map((r) => 
+            `- ${r.risk_item} (Cat: ${r.category})\n  Desc: ${r.description}`
+        ).join("\n");
 
-            logStatus("Step 1/3: Identifying Consent Discussions...");
-            const broadData = await callGemini(apiKey, BROAD_SEGMENTATION_PROMPT, BROAD_SEGMENTATION_SCHEMA, fullTranscriptText);
+        const masterAssessment = {
+            problem_area: "Combined Encounters",
+            summary: procDetails.name,
+            decision_type: "Patient Timeline Analysis",
+            colorTheme: REGION_COLORS[0],
+            customProcedureName: procDetails.name,
+            autoDetectWarning: autoDetectWarningMsg, // Store warning if triggered
+            ahrq_consent_checklist: {
+                purpose_procedures_explained: false,
+                risks_discomforts_explained: false,
+                benefits_compensation_explained: false,
+                voluntariness_withdrawal_explained: false,
+                privacy_confidentiality_explained: false,
+                teach_back_used: false
+            },
+            ontology_risk_assessment: ontologyObj.map(r => ({
+                risk_item: r.risk_item,
+                importance: r.importance,
+                status: "Not Mentioned",
+                level_of_detail: [],
+                jargon_level: [],
+                quote: [],
+                turn_indices: [],
+                files: []
+            })),
+            additional_risks_discussed: [],
+            relevant_turn_indices: []
+        };
+
+        // Process EACH FILE INDEPENDENTLY
+        for (let i = 0; i < files.length; i++) {
+            const fName = files[i].name;
+            logStatus(`--- Evaluating Transcript: ${fName} ---`);
+            
+            const localTurns = globalTurns.filter(t => t.encounter === fName);
+            const localTranscriptText = localTurns.map(t => `[TURN ${t.index}] ${t.speaker_line}\n${t.text_lines.join('\n')}\n`).join('\n');
+
+            logStatus(`Step 1/3: Identifying Consent Discussions in ${fName}...`);
+            const broadData = await callGemini(apiKey, BROAD_SEGMENTATION_PROMPT, BROAD_SEGMENTATION_SCHEMA, localTranscriptText);
             const decisions = broadData.decisions || [];
             
             if (decisions.length === 0) {
-                logStatus("No consent discussions found. Pipeline Complete.");
-                loader.style.display = "none";
-                return;
+                logStatus(`No consent discussions found in ${fName}. Skipping.`);
+                continue;
             }
 
-            const finalRegions = [];
-
-            for (let i = 0; i < decisions.length; i++) {
-                const reg = decisions[i];
-                logStatus(`Processing Region ${i+1}/${decisions.length}: "${reg.summary}"`);
-
+            for (let d = 0; d < decisions.length; d++) {
+                const reg = decisions[d];
                 let chunkText = "";
                 for (let j = reg.broad_start_turn_index; j <= reg.broad_end_turn_index; j++) {
-                    if (turns[j]) chunkText += `[TURN ${j}] ${turns[j].speaker_line}\n${turns[j].text_lines.join('\n')}\n\n`;
+                    const turnObj = globalTurns.find(t => t.index === j);
+                    if (turnObj) chunkText += `[TURN ${j}] ${turnObj.speaker_line}\n${turnObj.text_lines.join('\n')}\n\n`;
                 }
 
-                logStatus(`Step 2/3 (Region ${i+1}): Extracting relevant context lines...`);
-                const filterPromptStr = `Study/Protocol: ${reg.summary}\n\nTranscript Chunk:\n${chunkText}`;
+                logStatus(`Step 2/3: Filtering irrelevant noise in ${fName}...`);
+                const filterPromptStr = `Procedure: ${reg.summary}\n\nTranscript Chunk:\n${chunkText}`;
                 const filterData = await callGemini(apiKey, RELEVANCE_FILTERING_PROMPT, RELEVANCE_FILTERING_SCHEMA, filterPromptStr);
-                
                 const validIndices = (filterData.relevant_turn_indices || []).sort((a,b) => a-b);
-                reg.relevant_turn_indices = validIndices;
+                masterAssessment.relevant_turn_indices.push(...validIndices);
 
                 let filteredTranscriptText = "";
                 validIndices.forEach(idx => {
-                    if (turns[idx]) filteredTranscriptText += `[TURN ${idx}] ${turns[idx].speaker_line}\n${turns[idx].text_lines.join('\n')}\n\n`;
+                    const turnObj = globalTurns.find(t => t.index === idx);
+                    if (turnObj) filteredTranscriptText += `[TURN ${idx}] ${turnObj.speaker_line}\n${turnObj.text_lines.join('\n')}\n\n`;
                 });
 
-                logStatus(`Step 3/3 (Region ${i+1}): Evaluating AHRQ Consent Elements & Extracting Risks...`);
-                const classData = await callGemini(apiKey, CLASSIFICATION_PROMPT_TEMPLATE, CLASSIFICATION_SCHEMA, filteredTranscriptText);
+                logStatus(`Step 3/3: Classifying risks for ${fName} (Core, Jargon, & Unlisted)...`);
+                const dynamicPrompt = getClassificationPrompt(ontologyText, procDetails.name, fName);
+                const classData = await callGemini(apiKey, dynamicPrompt, CLASSIFICATION_SCHEMA, filteredTranscriptText);
 
-                // Default isInvalid array for rendering safely
-                if(classData.classified_turns) {
-                    classData.classified_turns.forEach(ct => ct.behaviors.forEach(b => b.isInvalid = false));
+                // --- MERGE RESULTS ---
+                for (let key in classData.ahrq_consent_checklist) {
+                    if (classData.ahrq_consent_checklist[key]) masterAssessment.ahrq_consent_checklist[key] = true;
                 }
 
-                const finalReg = { ...reg, ...classData };
-                finalRegions.push(finalReg);
-            }
+                classData.ontology_risk_assessment.forEach(fileRisk => {
+                    let masterRisk = masterAssessment.ontology_risk_assessment.find(r => r.risk_item === fileRisk.risk_item);
+                    if (masterRisk && (fileRisk.status === "Covered" || fileRisk.status === "Partially Covered")) {
+                        if (fileRisk.status === "Covered") masterRisk.status = "Covered";
+                        else if (masterRisk.status === "Not Mentioned") masterRisk.status = "Partially Covered";
+                        
+                        if (!masterRisk.files.includes(fName)) masterRisk.files.push(fName);
+                        
+                        if (fileRisk.level_of_detail && fileRisk.level_of_detail !== "N/A" && fileRisk.level_of_detail !== "Not Mentioned") {
+                            masterRisk.level_of_detail.push(`<strong>[${fName}]</strong> ${fileRisk.level_of_detail}`);
+                        }
+                        if (fileRisk.jargon_level && fileRisk.jargon_level !== "N/A") {
+                            masterRisk.jargon_level.push(`<strong>[${fName}]</strong> ${fileRisk.jargon_level}`);
+                        }
+                        if (fileRisk.quote && fileRisk.quote !== "N/A" && fileRisk.quote !== "Not Mentioned") {
+                            masterRisk.quote.push(`<strong>[${fName}]</strong> "${fileRisk.quote}"`);
+                        }
+                        if (fileRisk.turn_indices && fileRisk.turn_indices.length > 0) {
+                            masterRisk.turn_indices.push(...fileRisk.turn_indices);
+                        }
+                    }
+                });
 
-            logStatus("Analysis Complete. Saving results to Local Database...");
-            
+                if (classData.additional_risks_discussed) {
+                    classData.additional_risks_discussed.forEach(ar => {
+                        masterAssessment.additional_risks_discussed.push({
+                            risk_name: ar.risk_name,
+                            quote: ar.quote,
+                            file: fName,
+                            turn_indices: ar.turn_indices || []
+                        });
+                    });
+                }
+            }
+        }
+
+        // RESTORED: Backend saving call
+        logStatus("Analysis Complete. Attempting to save to local database...");
+        try {
             await fetch('/api/save', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    filename: file.name,
-                    raw_text: rawText,
-                    turns: turns,
-                    regions: finalRegions
+                    filename: files.map(f=>f.name).join(' + '),
+                    turns: globalTurns,
+                    regions: [masterAssessment]
                 })
             });
-
-            logStatus("Saved successfully. Building UI...");
-            
-            const treeRoots = buildDecisionTree(finalRegions);
-            renderUI(finalRegions, treeRoots, turns);
-            switchTab('results');
-
-        } catch (error) {
-            console.error(error);
-            errBox.innerText = "Error: " + error.message;
-        } finally {
-            loader.style.display = "none";
+            logStatus("Saved to backend successfully.");
+        } catch (e) {
+            console.warn("Local DB not running, proceeding purely frontend.");
         }
-    };
-    reader.readAsText(file);
+
+        renderUI([masterAssessment], globalTurns);
+        document.getElementById('btn-results').style.display = 'inline-block';
+        switchTab('results');
+
+    } catch (error) {
+        console.error(error);
+        errBox.innerText = "Error: " + error.message;
+    } finally {
+        loader.style.display = "none";
+    }
 }
 
 // --- UI RENDERING ---
-
 function renderTreeNode(node) {
     const cl = node.ahrq_consent_checklist || {};
-    let score = 0;
-    if(cl.purpose_procedures_explained) score++;
-    if(cl.risks_discomforts_explained) score++;
-    if(cl.benefits_compensation_explained) score++;
-    if(cl.voluntariness_withdrawal_explained) score++;
-    if(cl.privacy_confidentiality_explained) score++;
+    const risks = node.ontology_risk_assessment || [];
+    const additionalRisks = node.additional_risks_discussed || [];
     
-    const elementsBadge = `<span class="badge checklist-badge">${score}/5 AHRQ Req Elements</span>`;
-    const tbBadge = cl.teach_back_used 
-        ? `<span class="badge teachback-badge">✓ AHRQ Teach-Back Used</span>`
-        : `<span class="badge" style="background:#95a5a6; color:white;">✗ No Teach-Back</span>`;
-
-    const risksCount = (node.risks_discussed || []).length;
-    const riskBadge = `<span class="badge risk-badge">${risksCount} Risk(s)/Discomfort(s) Mentioned</span>`;
+    // Core logic stats & Badges
+    const coreRisks = risks.filter(r => r.importance === "Core");
+    const coreCoveredCount = coreRisks.filter(r => r.status === "Covered").length;
+    const totalCoveredCount = risks.filter(r => r.status === "Covered").length;
+    
+    const coreBadge = `<span class="badge risk-badge" style="background:#e74c3c; margin-bottom: 5px;">${coreCoveredCount}/${coreRisks.length} Core Risks Fully Covered</span>`;
+    const totalBadge = `<span class="badge risk-badge" style="background:#34495e; margin-bottom: 5px;">${totalCoveredCount}/${risks.length} Total Expected Risks Fully Covered</span>`;
             
     const firstTurnIndex = (node.relevant_turn_indices && node.relevant_turn_indices.length > 0) ? node.relevant_turn_indices[0] : null;
 
-    // Build the detailed Risk Table
-    let risksHtml = '';
-    if (risksCount > 0) {
-        risksHtml = `
-            <table class="risk-table">
-                <thead><tr><th>Risk/Discomfort</th><th>Clinician Description</th><th>Detail Level</th><th>Probability Mentioned?</th><th>Turns</th></tr></thead>
-                <tbody>
-                    ${node.risks_discussed.map(r => `
-                        <tr>
-                            <td><strong>${r.risk_name}</strong></td>
-                            <td style="font-style:italic; color:#555;">"${r.clinician_description}"</td>
-                            <td class="detail-${r.detail_level}">${r.detail_level}</td>
-                            <td>${r.is_probability_mentioned ? 'Yes (Statistic/Likelihood)' : 'No'}</td>
-                            <td>[${r.turn_indices.join(', ')}]</td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-        `;
-    } else {
-        risksHtml = `<div style="padding: 10px; color: #7f8fa6; font-size: 0.9rem;">No specific risks or discomforts were explicitly extracted.</div>`;
+    let warningHtml = '';
+    if (node.autoDetectWarning) {
+        warningHtml = `<div style="background-color: #fff3cd; color: #856404; padding: 12px; border: 1px solid #ffeeba; border-radius: 4px; margin-bottom: 15px; font-weight: bold; font-size: 0.95rem;">${node.autoDetectWarning}</div>`;
     }
 
-    // Build Checklist UI
+    // Expected Risks Table
+    let risksHtml = `
+        <table class="risk-table">
+            <thead><tr>
+                <th style="width: 25%;">Expected Risk Item</th>
+                <th>Status</th>
+                <th>Jargon Level</th>
+                <th>Encounter(s)</th>
+                <th style="width: 25%;">How it was described</th>
+                <th style="width: 20%;">Extracted Quote & Turns</th>
+            </tr></thead>
+            <tbody>
+                ${risks.map(r => {
+                    let statusClass = "status-Not";
+                    if(r.status === "Covered") statusClass = "status-Covered";
+                    if(r.status === "Partially Covered") statusClass = "status-Partially";
+                    
+                    let impBadge = r.importance === "Core" ? `<span class="badge core-badge">Core</span>` : `<span class="badge relevant-badge">Relevant</span>`;
+
+                    let encounterBadges = (r.files && r.files.length > 0)
+                        ? r.files.map(f => `<div class="encounter-badge">${f}</div>`).join('')
+                        : '-';
+
+                    let detailHtml = (r.level_of_detail && r.level_of_detail.length > 0)
+                        ? r.level_of_detail.join('<br><br>') : '<span style="color:#95a5a6; font-style:italic;">N/A</span>';
+
+                    let jargonHtml = (r.jargon_level && r.jargon_level.length > 0)
+                        ? r.jargon_level.join('<br>') : '<span style="color:#95a5a6;">-</span>';
+
+                    let quoteHtml = (r.quote && r.quote.length > 0)
+                        ? r.quote.join('<br><br>') : '<span style="color:#95a5a6; font-style:italic;">N/A</span>';
+
+                    let turnLinks = (r.turn_indices && r.turn_indices.length > 0)
+                        ? r.turn_indices.map(t => `<span class="turn-link" onclick="scrollToTurn(${t})" title="Jump to Turn ${t}">T${t}</span>`).join(' ')
+                        : '';
+
+                    return `
+                    <tr>
+                        <td><strong>${r.risk_item}</strong><br>${impBadge}</td>
+                        <td class="${statusClass}">${r.status}</td>
+                        <td style="font-size:0.8rem;">${jargonHtml}</td>
+                        <td>${encounterBadges}</td>
+                        <td style="font-size: 0.85rem; color:#555;">${detailHtml}</td>
+                        <td style="font-style:italic; font-size: 0.85rem; color:#7f8fa6;">${quoteHtml}<br><br>${turnLinks}</td>
+                    </tr>
+                    `
+                }).join('')}
+            </tbody>
+        </table>
+    `;
+
+    // Novel/Unlisted Risks Table
+    let additionalRisksHtml = '';
+    if (additionalRisks.length > 0) {
+        additionalRisksHtml = `
+            <div class="map-options" style="background: #fff; border: 1px solid #dfe4ea; margin-top: 20px;">
+                <strong style="font-size: 0.9rem; color: #d35400;">Unlisted / Additional Risks Mentioned (Not in Standard DB)</strong>
+                <table class="risk-table" style="margin-top: 10px;">
+                    <thead><tr>
+                        <th style="width: 25%;">Mentioned Risk</th>
+                        <th>Encounter File</th>
+                        <th style="width: 50%;">Quote & Turns</th>
+                    </tr></thead>
+                    <tbody>
+                        ${additionalRisks.map(ar => {
+                            let turnLinks = (ar.turn_indices && ar.turn_indices.length > 0)
+                                ? ar.turn_indices.map(t => `<span class="turn-link" onclick="scrollToTurn(${t})">T${t}</span>`).join(' ')
+                                : '';
+                            return `
+                            <tr>
+                                <td><strong>${ar.risk_name}</strong></td>
+                                <td><div class="encounter-badge">${ar.file}</div></td>
+                                <td style="font-style:italic; font-size: 0.85rem; color:#555;">"${ar.quote}"<br><br>${turnLinks}</td>
+                            </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }
+
     const checklistHtml = `
         <ul style="margin: 5px 0 0 0; padding-left: 20px; font-size: 0.9rem; display: flex; flex-wrap: wrap; gap: 15px; list-style-type: none;">
             <li style="color: ${cl.purpose_procedures_explained ? 'green':'#e74c3c'}">${cl.purpose_procedures_explained ? '✅':'❌'} Purpose & Procedures</li>
-            <li style="color: ${cl.risks_discomforts_explained ? 'green':'#e74c3c'}">${cl.risks_discomforts_explained ? '✅':'❌'} Risks & Discomforts</li>
-            <li style="color: ${cl.benefits_compensation_explained ? 'green':'#e74c3c'}">${cl.benefits_compensation_explained ? '✅':'❌'} Benefits & Comp</li>
+            <li style="color: ${cl.risks_discomforts_explained ? 'green':'#e74c3c'}">${cl.risks_discomforts_explained ? '✅':'❌'} Risks Overview</li>
+            <li style="color: ${cl.benefits_compensation_explained ? 'green':'#e74c3c'}">${cl.benefits_compensation_explained ? '✅':'❌'} Benefits</li>
             <li style="color: ${cl.voluntariness_withdrawal_explained ? 'green':'#e74c3c'}">${cl.voluntariness_withdrawal_explained ? '✅':'❌'} Voluntariness</li>
             <li style="color: ${cl.privacy_confidentiality_explained ? 'green':'#e74c3c'}">${cl.privacy_confidentiality_explained ? '✅':'❌'} Privacy/HIPAA</li>
+            <li style="color: ${cl.teach_back_used ? 'green':'#e74c3c'}">${cl.teach_back_used ? '✅':'❌'} Teach-Back Used</li>
         </ul>
     `;
     
-    // Build Behaviors
-    let behaviorsHtml = '';
-    if (node.classified_turns) {
-        node.classified_turns.forEach(ct => {
-            ct.behaviors.forEach(b => {
-                let optionLabelTag = '';
-                if (b.related_risk_name) {
-                    optionLabelTag = `<span class="mapped-option-tag" title="Mapped to Risk: ${b.related_risk_name}">→ ${b.related_risk_name}</span>`;
-                }
-                behaviorsHtml += `<div class="behavior-pill" title="Click to jump to Turn ${ct.turn_index}" onclick="scrollToTurn(${ct.turn_index})">
-                    <span style="font-weight:bold; color: ${node.colorTheme.tag}">T${ct.turn_index}</span> 
-                    ${b.behavior_name}
-                    ${optionLabelTag}
-                </div>`;
-            });
-        });
-    }
-
     let html = `
     <div class="decision-card" style="border-left-color: ${node.colorTheme.border}; opacity: 1;">
-        <div class="card-header" ${firstTurnIndex !== null ? `onclick="scrollToTurn(${firstTurnIndex})" title="Click to jump to start of discussion (Turn ${firstTurnIndex})"` : ''}>
+        ${warningHtml}
+        <div class="card-header" ${firstTurnIndex !== null ? `onclick="scrollToTurn(${firstTurnIndex})"` : ''}>
             <h4>[${node.problem_area}] ${node.summary}</h4>
-            <div>${elementsBadge}${tbBadge}${riskBadge}<span class="badge" style="background: ${node.colorTheme.bg}; color: ${node.colorTheme.tag}; border: 1px solid ${node.colorTheme.border}">${node.decision_type || 'Study'}</span></div>
-        </div>
-        <div style="font-size:0.85rem; color:#7f8fa6; margin-bottom:10px;">
-            <strong>Filtered Turns:</strong> [${node.relevant_turn_indices.join(', ')}]
+            <div>
+                ${coreBadge} ${totalBadge}
+                <span class="badge" style="background: ${node.colorTheme.bg}; color: ${node.colorTheme.tag}; border: 1px solid ${node.colorTheme.border}; margin-bottom: 5px;">${node.decision_type || 'Procedure'}</span>
+            </div>
         </div>
         
         <div class="map-options">
-            <strong style="font-size: 0.9rem;">AHRQ Req Disclosure Elements Present (45 CFR 46.116):</strong>
+            <strong style="font-size: 0.9rem;">Combined AHRQ Checklist (Found across encounters):</strong>
             ${checklistHtml}
         </div>
 
         <div class="map-options" style="background: #fff; border: 1px solid #dfe4ea;">
-            <strong style="font-size: 0.9rem; color: #c0392b;">Extracted Risks & Discomforts:</strong>
+            <strong style="font-size: 0.9rem; color: var(--primary);">Aggregated Risk Assessment: ${node.customProcedureName}</strong>
             ${risksHtml}
         </div>
-
-        <div style="margin-top:15px;"><strong style="font-size: 0.9rem;">Mapped Transcript Behaviors:</strong><div class="map-behaviors" style="margin-top:8px;">${behaviorsHtml || '<span style="color:#999; font-size:0.9rem;">No behaviors detected.</span>'}</div></div>`;
         
-    if (node.children && node.children.length > 0) {
-        html += `<div class="tree-children">`;
-        node.children.forEach(child => { html += renderTreeNode(child); });
-        html += `</div>`;
-    }
+        ${additionalRisksHtml}
+    </div>`;
     
-    html += `</div>`;
     return html;
 }
 
-function renderUI(regions, treeRoots, turns) {
+function renderUI(regions, turns) {
     const results = document.getElementById('resultsContent');
-    let html = `<h2>AHRQ Informed Consent Dashboard</h2><div class="tree-container">`;
-    treeRoots.forEach(root => { html += renderTreeNode(root); });
-    html += `</div><h2>Global Transcript</h2><div class="global-transcript">`;
+    let html = `<h2>AHRQ Procedure Dashboard (Patient Timeline View)</h2><div class="tree-container">`;
+    regions.forEach(root => { html += renderTreeNode(root); });
+    
+    // Global Multi-File Transcript
+    html += `</div><h2>Patient Timeline (Merged Transcripts)</h2><div class="global-transcript">`;
 
     turns.forEach((turn) => {
-        const activeRegions = regions.filter(r => r.relevant_turn_indices.includes(turn.index));
+        const activeRegions = regions.filter(r => r.relevant_turn_indices && r.relevant_turn_indices.includes(turn.index));
+        
         const turnTags = [];
         activeRegions.forEach(r => {
-            if(r.classified_turns) {
-                const mapped = r.classified_turns.find(ct => ct.turn_index === turn.index);
-                if (mapped) {
-                    mapped.behaviors.forEach(b => { 
-                        const tagText = b.related_risk_name ? `${b.behavior_name} (${b.related_risk_name})` : b.behavior_name;
-                        turnTags.push({ text: tagText, color: r.colorTheme.tag, invalid: b.isInvalid }); 
-                    });
-                }
+            if(r.ontology_risk_assessment) {
+                r.ontology_risk_assessment.forEach(risk => {
+                    if (risk.turn_indices && risk.turn_indices.includes(turn.index)) {
+                        turnTags.push({ text: risk.risk_item, color: r.colorTheme.tag });
+                    }
+                });
+            }
+            if(r.additional_risks_discussed) {
+                r.additional_risks_discussed.forEach(ar => {
+                    if (ar.turn_indices && ar.turn_indices.includes(turn.index)) {
+                        turnTags.push({ text: `[Novel] ${ar.risk_name}`, color: '#d35400' });
+                    }
+                });
             }
         });
 
         let turnBg = 'transparent';
         let turnBorder = 'transparent';
         
-        if (activeRegions.length === 1) {
+        if (activeRegions.length > 0) {
             turnBg = activeRegions[0].colorTheme.bg;
             turnBorder = activeRegions[0].colorTheme.border;
-        } else if (activeRegions.length > 1) {
-            const colors = activeRegions.map(r => r.colorTheme.bg);
-            const gradientStops = colors.map((color, idx) => `${color} ${idx * 15}px, ${color} ${(idx + 1) * 15}px`).join(', ');
-            turnBg = `repeating-linear-gradient(45deg, ${gradientStops})`;
-            turnBorder = '#2f3640'; 
         }
 
-        const tagsHtml = turnTags.map(t => `<span class="text-tag" style="background:${t.color}; ${t.invalid ? 'text-decoration:line-through; opacity:0.5;' : ''}">${t.text}</span>`).join('');
+        const tagsHtml = turnTags.map(t => `<span class="text-tag" style="background:${t.color};">${t.text}</span>`).join('');
 
         html += `
         <div id="turn-${turn.index}" class="turn-container" style="background: ${turnBg}; border-left-color: ${turnBorder};">
-            <div class="turn-meta"><div>[TURN ${turn.index}]</div><div style="color:#2f3640;">${turn.speaker_line}</div></div>
+            <div class="turn-meta">
+                <div class="encounter-label" title="${turn.encounter}">${turn.encounter.substring(0,12)}...</div>
+                <div>[TURN ${turn.index}]</div>
+                <div style="color:#2f3640;">${turn.speaker_line}</div>
+            </div>
             <div class="turn-content">${tagsHtml.length > 0 ? `<div class="turn-tags">${tagsHtml}</div>` : ''}${turn.text_lines.join('\n')}</div>
         </div>`;
     });
